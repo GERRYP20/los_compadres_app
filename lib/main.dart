@@ -151,7 +151,6 @@ class StockPage extends StatelessWidget {
   }
 }
 
-// --- PÁGINA 2: VENTAS (Simplificada a cliente, cantidad, total, fecha) ---
 class RegistrarVentaPage extends StatefulWidget {
   const RegistrarVentaPage({super.key});
   @override
@@ -161,7 +160,11 @@ class RegistrarVentaPage extends StatefulWidget {
 class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
   final _clienteController = TextEditingController();
   final _cantidadController = TextEditingController();
-  final _precioController = TextEditingController(); // Nuevo para calcular el total
+  
+  // 1. Definimos el precio inicial y la lista de opciones (6.0 a 7.0)
+  double _precioSeleccionado = 6.0;
+  final List<double> _preciosDisponibles = [6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0];
+  
   bool _cargando = false;
 
   @override
@@ -173,18 +176,44 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
         children: [
           const Text('NUEVA VENTA', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 25),
+          
+          // Campo Cliente
           TextField(controller: _clienteController, decoration: const InputDecoration(labelText: 'Cliente', border: OutlineInputBorder())),
           const SizedBox(height: 15),
+          
+          // Campo Cantidad
           TextField(controller: _cantidadController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Cantidad de Ladrillos', border: OutlineInputBorder())),
           const SizedBox(height: 15),
-          TextField(controller: _precioController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Precio por Unidad', border: OutlineInputBorder())),
-          const SizedBox(height: 30),
+          
+          // 2. LA CAJA DE PRECIOS FIJOS (Dropdown)
+          const Text('Precio por Unidad (\$)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<double>(
+            value: _precioSeleccionado,
+            decoration: const InputDecoration(border: OutlineInputBorder()),
+            items: _preciosDisponibles.map((double precio) {
+              return DropdownMenuItem<double>(
+                value: precio,
+                child: Text('\$ $precio'),
+              );
+            }).toList(),
+            onChanged: (double? nuevoPrecio) {
+              setState(() {
+                _precioSeleccionado = nuevoPrecio!;
+              });
+            },
+          ),
+          
+          const SizedBox(height: 40),
+          
+          // Botón de Confirmar
           SizedBox(width: double.infinity, height: 55, child: ElevatedButton(
             onPressed: _cargando ? null : () async {
               setState(() => _cargando = true);
+              
               int cant = int.tryParse(_cantidadController.text) ?? 0;
-              double precio = double.tryParse(_precioController.text) ?? 0.0;
-              double total = cant * precio;
+              // 3. Calculamos el total usando el precio de la caja
+              double total = cant * _precioSeleccionado;
 
               DocumentReference stockRef = FirebaseFirestore.instance.collection('inventario').doc('global');
               CollectionReference ventasRef = FirebaseFirestore.instance.collection('ventas');
@@ -192,22 +221,24 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
               try {
                 await FirebaseFirestore.instance.runTransaction((tx) async {
                   DocumentSnapshot snap = await tx.get(stockRef);
-                  // 1. Restar del stock
+                  // Restar del stock (CU-04)
                   tx.update(stockRef, {'piezas_disponibles': snap['piezas_disponibles'] - cant});
-                  // 2. Guardar solo los 4 campos solicitados
+                  // Guardar venta (CU-03)
                   tx.set(ventasRef.doc(), {
-                    'cliente': _clienteController.text.isEmpty ? 'Público General' : _clienteController.text,
+                    'cliente': _clienteController.text.trim(),
                     'cantidad': cant,
                     'total': total,
                     'fecha': FieldValue.serverTimestamp(),
                   });
                 });
+                
                 setState(() => _cargando = false);
-                _clienteController.clear(); _cantidadController.clear(); _precioController.clear();
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Venta Registrada')));
+                _clienteController.clear(); 
+                _cantidadController.clear();
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Venta registrada correctamente')));
               } catch (e) {
                 setState(() => _cargando = false);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Error: $e')));
               }
             },
             child: _cargando ? const CircularProgressIndicator(color: Colors.white) : const Text('CONFIRMAR VENTA'),
