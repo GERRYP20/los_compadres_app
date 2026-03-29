@@ -282,6 +282,32 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
   double _precio = 6.0;
   bool _cargando = false;
 
+  bool get _esFormularioValido {
+    final cantidad = int.tryParse(_cantidadController.text) ?? 0;
+    final cliente = _clienteController.text.trim();
+    return cantidad > 0 && cliente.isNotEmpty;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _clienteController.addListener(_onFormChanged);
+    _cantidadController.addListener(_onFormChanged);
+  }
+
+  @override
+  void dispose() {
+    _clienteController.removeListener(_onFormChanged);
+    _cantidadController.removeListener(_onFormChanged);
+    _clienteController.dispose();
+    _cantidadController.dispose();
+    super.dispose();
+  }
+
+  void _onFormChanged() {
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -327,11 +353,27 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
             width: double.infinity,
             height: 55,
             child: ElevatedButton(
-              onPressed: _cargando
+              onPressed: _cargando || !_esFormularioValido
                   ? null
                   : () async {
+                      if (!_esFormularioValido) return;
                       setState(() => _cargando = true);
                       int cant = int.tryParse(_cantidadController.text) ?? 0;
+                      if (cant <= 0) {
+                        setState(() => _cargando = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('❌ La cantidad debe ser mayor a 0')),
+                        );
+                        return;
+                      }
+                      String cliente = _clienteController.text.trim();
+                      if (cliente.isEmpty) {
+                        setState(() => _cargando = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('❌ Ingrese el nombre del cliente')),
+                        );
+                        return;
+                      }
                       try {
                         await FirebaseFirestore.instance.runTransaction((
                           tx,
@@ -350,7 +392,7 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
                                 .collection('ventas')
                                 .doc(),
                             {
-                              'cliente': _clienteController.text.trim(),
+                              'cliente': cliente,
                               'cantidad': cant,
                               'total': cant * _precio,
                               'fecha': FieldValue.serverTimestamp(),
