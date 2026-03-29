@@ -9,11 +9,8 @@ void main() async {
   runApp(const LosCompadresApp());
 }
 
-// 1. DEFINICIÓN DE LA NUEVA PALETA DE COLORES (Inspirada en image_d2b026.png)
-const Color customPrimaryTeal = Color(0xFF14BDD1); // El cian vibrante de la imagen
-const Color customOnPrimary = Colors.white;
-const Color customSurfaceLight = Colors.white;
-const Color customOnSurfaceDark = Color(0xFF1C1C1E); // Un gris muy oscuro para texto
+// PALETA DE COLORES CIAN (Identidad Visual)
+const Color customPrimaryTeal = Color(0xFF14BDD1);
 
 class LosCompadresApp extends StatefulWidget {
   const LosCompadresApp({super.key});
@@ -36,60 +33,19 @@ class _LosCompadresAppState extends State<LosCompadresApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Ladrillera Los Compadres',
-      
-      // 2. APLICACIÓN DEL NUEVO TEMA CLARO (Basado en la imagen)
       theme: ThemeData(
         useMaterial3: true,
-        brightness: Brightness.light,
-        colorScheme: const ColorScheme.light(
-          primary: customPrimaryTeal,
-          onPrimary: customOnPrimary,
-          surface: customSurfaceLight,
-          onSurface: customOnSurfaceDark,
-          secondary: customPrimaryTeal, // Usamos el mismo cian para acentos
-        ),
-        scaffoldBackgroundColor: customSurfaceLight,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: customSurfaceLight,
-          foregroundColor: customOnSurfaceDark,
-          elevation: 0,
-        ),
-        // Estilo global para botones para usar el nuevo cian
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: customPrimaryTeal,
-            foregroundColor: customOnPrimary,
-            textStyle: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
+        colorScheme: ColorScheme.fromSeed(seedColor: customPrimaryTeal, brightness: Brightness.light),
       ),
-      
-      // 3. APLICACIÓN DEL TEMA OSCURO (Adaptado para que el cian resalte)
       darkTheme: ThemeData(
         useMaterial3: true,
-        brightness: Brightness.dark,
-        colorScheme: const ColorScheme.dark(
-          primary: customPrimaryTeal, // El cian resalta muy bien en oscuro
-          onPrimary: Colors.black, // Texto negro sobre botones cian
-          surface: Color(0xFF121212),
-          onSurface: Colors.white70,
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: customPrimaryTeal,
-            foregroundColor: Colors.black,
-            textStyle: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
+        colorScheme: ColorScheme.fromSeed(seedColor: customPrimaryTeal, brightness: Brightness.dark),
       ),
-      
       themeMode: _themeMode,
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
-          if (snapshot.hasData) {
-            return MainNavigationPage(onThemeToggle: _toggleTheme);
-          }
+          if (snapshot.hasData) return MainNavigationPage(onThemeToggle: _toggleTheme);
           return LoginPage(onThemeToggle: _toggleTheme);
         },
       ),
@@ -97,7 +53,7 @@ class _LosCompadresAppState extends State<LosCompadresApp> {
   }
 }
 
-// --- CONTENEDOR DE NAVEGACIÓN PRINCIPAL (Actualizado con colores) ---
+// --- CONTENEDOR DE NAVEGACIÓN ---
 class MainNavigationPage extends StatefulWidget {
   final VoidCallback onThemeToggle;
   const MainNavigationPage({super.key, required this.onThemeToggle});
@@ -114,6 +70,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
   void initState() {
     super.initState();
     _pages = [
+      const InicioPage(),
       const StockPage(),
       const RegistrarVentaPage(),
       const FinanzasPage(),
@@ -136,25 +93,42 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
         type: BottomNavigationBarType.fixed,
-        // NUEVO: Usamos el cian para el ítem seleccionado
-        selectedItemColor: customPrimaryTeal, 
+        selectedItemColor: customPrimaryTeal,
         unselectedItemColor: Colors.grey,
-        backgroundColor: Theme.of(context).colorScheme.surface,
         items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
           BottomNavigationBarItem(icon: Icon(Icons.inventory_2), label: 'Stock'),
           BottomNavigationBarItem(icon: Icon(Icons.add_shopping_cart), label: 'Ventas'),
           BottomNavigationBarItem(icon: Icon(Icons.monetization_on), label: 'Finanzas'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Más'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Ajustes'),
         ],
       ),
     );
   }
 }
 
-// --- 1. PÁGINA DE STOCK (Actualizado color de texto) ---
+// --- PÁGINA 0: INICIO ---
+class InicioPage extends StatelessWidget {
+  const InicioPage({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.home_work, size: 100, color: customPrimaryTeal),
+          const SizedBox(height: 20),
+          const Text('¡Hola, Gerardo!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          const Text('Ladrillera Los Compadres', style: TextStyle(color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+}
+
+// --- PÁGINA 1: STOCK ---
 class StockPage extends StatelessWidget {
   const StockPage({super.key});
-
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot>(
@@ -166,9 +140,8 @@ class StockPage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('Ladrillos en Almacén', style: TextStyle(fontSize: 20)),
+              const Text('Stock Actual', style: TextStyle(fontSize: 20)),
               Text('${data['piezas_disponibles']}', 
-                // NUEVO: Texto grande en el nuevo cian
                 style: const TextStyle(fontSize: 90, fontWeight: FontWeight.bold, color: customPrimaryTeal)),
             ],
           ),
@@ -178,133 +151,149 @@ class StockPage extends StatelessWidget {
   }
 }
 
-// --- 2. PÁGINA DE VENTAS (Mismo código, toma color de botones global) ---
+// --- PÁGINA 2: VENTAS (Simplificada a cliente, cantidad, total, fecha) ---
 class RegistrarVentaPage extends StatefulWidget {
   const RegistrarVentaPage({super.key});
-
   @override
   State<RegistrarVentaPage> createState() => _RegistrarVentaPageState();
 }
 
 class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
-  final _formKey = GlobalKey<FormState>();
+  final _clienteController = TextEditingController();
   final _cantidadController = TextEditingController();
+  final _precioController = TextEditingController(); // Nuevo para calcular el total
   bool _cargando = false;
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(25),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('NUEVA VENTA', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 30),
-            TextFormField(
-              controller: _cantidadController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Cantidad de Ladrillos', border: OutlineInputBorder()),
-              validator: (v) => (int.tryParse(v ?? '') ?? 0) <= 0 ? 'Ingrese una cantidad válida' : null,
-            ),
-            const SizedBox(height: 30),
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton(
-                // NUEVO: El botón toma el color global (cian)
-                onPressed: _cargando ? null : () async {
-                  if (_formKey.currentState!.validate()) {
-                    setState(() => _cargando = true);
-                    int cant = int.parse(_cantidadController.text);
-                    DocumentReference ref = FirebaseFirestore.instance.collection('inventario').doc('global');
-                    await FirebaseFirestore.instance.runTransaction((tx) async {
-                      DocumentSnapshot snap = await tx.get(ref);
-                      tx.update(ref, {'piezas_disponibles': snap['piezas_disponibles'] - cant});
-                    });
-                    setState(() => _cargando = false);
-                    _cantidadController.clear();
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Venta Exitosa')));
-                  }
-                },
-                child: _cargando ? const CircularProgressIndicator(color: Colors.white) : const Text('CONFIRMAR VENTA'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// --- 3. PÁGINA DE FINANZAS (Actualizado color de icono) ---
-class FinanzasPage extends StatelessWidget {
-  const FinanzasPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // NUEVO: Icono en el nuevo cian
-          Icon(Icons.account_balance_wallet, size: 80, color: customPrimaryTeal),
-          Text('Resumen Financiero', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          Text('Próximamente: Gastos y Utilidades', style: TextStyle(color: Colors.grey)),
+          const Text('NUEVA VENTA', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 25),
+          TextField(controller: _clienteController, decoration: const InputDecoration(labelText: 'Cliente', border: OutlineInputBorder())),
+          const SizedBox(height: 15),
+          TextField(controller: _cantidadController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Cantidad de Ladrillos', border: OutlineInputBorder())),
+          const SizedBox(height: 15),
+          TextField(controller: _precioController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Precio por Unidad', border: OutlineInputBorder())),
+          const SizedBox(height: 30),
+          SizedBox(width: double.infinity, height: 55, child: ElevatedButton(
+            onPressed: _cargando ? null : () async {
+              setState(() => _cargando = true);
+              int cant = int.tryParse(_cantidadController.text) ?? 0;
+              double precio = double.tryParse(_precioController.text) ?? 0.0;
+              double total = cant * precio;
+
+              DocumentReference stockRef = FirebaseFirestore.instance.collection('inventario').doc('global');
+              CollectionReference ventasRef = FirebaseFirestore.instance.collection('ventas');
+
+              try {
+                await FirebaseFirestore.instance.runTransaction((tx) async {
+                  DocumentSnapshot snap = await tx.get(stockRef);
+                  // 1. Restar del stock
+                  tx.update(stockRef, {'piezas_disponibles': snap['piezas_disponibles'] - cant});
+                  // 2. Guardar solo los 4 campos solicitados
+                  tx.set(ventasRef.doc(), {
+                    'cliente': _clienteController.text.isEmpty ? 'Público General' : _clienteController.text,
+                    'cantidad': cant,
+                    'total': total,
+                    'fecha': FieldValue.serverTimestamp(),
+                  });
+                });
+                setState(() => _cargando = false);
+                _clienteController.clear(); _cantidadController.clear(); _precioController.clear();
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Venta Registrada')));
+              } catch (e) {
+                setState(() => _cargando = false);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+              }
+            },
+            child: _cargando ? const CircularProgressIndicator(color: Colors.white) : const Text('CONFIRMAR VENTA'),
+          )),
         ],
       ),
     );
   }
 }
 
-// --- 4. OTRAS COSAS ---
-class AjustesPage extends StatelessWidget {
-  const AjustesPage({super.key});
-
+// --- PÁGINA 3: FINANZAS (Visualización simplificada) ---
+class FinanzasPage extends StatelessWidget {
+  const FinanzasPage({super.key});
   @override
   Widget build(BuildContext context) {
-    return const Center(child: Text('Configuración y Perfil de Usuario'));
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('ventas').orderBy('fecha', descending: true).snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        
+        double capitalTotal = 0;
+        for (var doc in snapshot.data!.docs) {
+          capitalTotal += (doc['total'] as num).toDouble();
+        }
+
+        return Padding(
+          padding: const EdgeInsets.all(25),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('CAPITAL TOTAL', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+              Text('\$${capitalTotal.toStringAsFixed(2)}', 
+                style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: customPrimaryTeal)),
+              const Divider(height: 40),
+              const Text('HISTORIAL', style: TextStyle(fontWeight: FontWeight.bold)),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: snapshot.data!.docs.length,
+                  itemBuilder: (context, index) {
+                    var v = snapshot.data!.docs[index];
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(v['cliente']),
+                      subtitle: Text('${v['cantidad']} piezas'),
+                      trailing: Text('\$${v['total']}', style: const TextStyle(fontWeight: FontWeight.bold, color: customPrimaryTeal)),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 
-// --- LOGIN PAGE (Actualizado con nuevos colores) ---
+class AjustesPage extends StatelessWidget {
+  const AjustesPage({super.key});
+  @override
+  Widget build(BuildContext context) => const Center(child: Text('Configuración del Perfil'));
+}
+
+// --- LOGIN PAGE ---
 class LoginPage extends StatelessWidget {
   final VoidCallback onThemeToggle;
   LoginPage({super.key, required this.onThemeToggle});
-  final _email = TextEditingController();
-  final _pass = TextEditingController();
-
+  final _e = TextEditingController(); final _p = TextEditingController();
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, actions: [
-        IconButton(icon: const Icon(Icons.brightness_6), onPressed: onThemeToggle),
-      ]),
       body: Padding(
         padding: const EdgeInsets.all(30),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // NUEVO: Icono de candado en el nuevo cian
-            const Icon(Icons.lock_person, size: 100, color: customPrimaryTeal),
-            const Text('Acceso Los Compadres', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 50),
-            TextField(controller: _email, decoration: const InputDecoration(labelText: 'Correo', border: OutlineInputBorder())),
-            const SizedBox(height: 15),
-            TextField(controller: _pass, obscureText: true, decoration: const InputDecoration(labelText: 'Contraseña', border: OutlineInputBorder())),
-            const SizedBox(height: 40),
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton(
-                // NUEVO: Botón de entrar en el nuevo cian
-                onPressed: () => FirebaseAuth.instance.signInWithEmailAndPassword(email: _email.text.trim(), password: _pass.text.trim()),
-                child: const Text('ENTRAR', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ),
-          ],
-        ),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.lock, size: 80, color: customPrimaryTeal),
+          const Text('Los Compadres', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 40),
+          TextField(controller: _e, decoration: const InputDecoration(labelText: 'Correo', border: OutlineInputBorder())),
+          const SizedBox(height: 15),
+          TextField(controller: _p, obscureText: true, decoration: const InputDecoration(labelText: 'Contraseña', border: OutlineInputBorder())),
+          const SizedBox(height: 30),
+          SizedBox(width: double.infinity, height: 55, child: ElevatedButton(
+            onPressed: () => FirebaseAuth.instance.signInWithEmailAndPassword(email: _e.text.trim(), password: _p.text.trim()),
+            child: const Text('ENTRAR'),
+          )),
+        ]),
       ),
     );
   }
