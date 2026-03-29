@@ -79,8 +79,8 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
       const InicioPage(),
       const StockPage(),
       const RegistrarVentaPage(),
+      const GastosPage(),
       const FinanzasPage(),
-      const AjustesPage(),
     ];
   }
 
@@ -108,8 +108,8 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: customPrimaryTeal,
-        unselectedItemColor: Colors.grey,
+        selectedItemColor: Theme.of(context).colorScheme.primary,
+        unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
           BottomNavigationBarItem(
@@ -121,10 +121,13 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
             label: 'Ventas',
           ),
           BottomNavigationBarItem(
+            icon: Icon(Icons.money_off),
+            label: 'Gastos',
+          ),
+          BottomNavigationBarItem(
             icon: Icon(Icons.monetization_on),
             label: 'Finanzas',
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Ajustes'),
         ],
       ),
     );
@@ -135,19 +138,29 @@ class InicioPage extends StatelessWidget {
   const InicioPage({super.key});
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.home_work, size: 100, color: customPrimaryTeal),
+          Icon(
+            Icons.home_work,
+            size: 100,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           SizedBox(height: 20),
           Text(
             '¡Hola, Gerardo!',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
           Text(
             'Ladrillera Los Compadres',
-            style: TextStyle(color: Colors.grey),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -239,16 +252,19 @@ class StockPage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
+              Text(
                 'Blocks en Almacén',
-                style: TextStyle(fontSize: 20, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 20,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
               Text(
                 '$current',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 100,
                   fontWeight: FontWeight.bold,
-                  color: customPrimaryTeal,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 50),
@@ -362,7 +378,9 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
                       if (cant <= 0) {
                         setState(() => _cargando = false);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('❌ La cantidad debe ser mayor a 0')),
+                          const SnackBar(
+                            content: Text('❌ La cantidad debe ser mayor a 0'),
+                          ),
                         );
                         return;
                       }
@@ -370,7 +388,9 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
                       if (cliente.isEmpty) {
                         setState(() => _cargando = false);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('❌ Ingrese el nombre del cliente')),
+                          const SnackBar(
+                            content: Text('❌ Ingrese el nombre del cliente'),
+                          ),
                         );
                         return;
                       }
@@ -427,133 +447,244 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
   }
 }
 
-class FinanzasPage extends StatelessWidget {
+class FinanzasPage extends StatefulWidget {
   const FinanzasPage({super.key});
+  @override
+  State<FinanzasPage> createState() => _FinanzasPageState();
+}
+
+class _FinanzasPageState extends State<FinanzasPage> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('ventas')
-          .orderBy('fecha', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData)
-          return const Center(child: CircularProgressIndicator());
-        double total = snapshot.data!.docs.fold(
-          0,
-          (prev, doc) => prev + (doc['total'] as num).toDouble(),
+      stream: FirebaseFirestore.instance.collection('ventas').snapshots(),
+      builder: (context, ventasSnapshot) {
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance.collection('gastos').snapshots(),
+          builder: (context, gastosSnapshot) {
+            if (!ventasSnapshot.hasData || !gastosSnapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            double totalVentas = ventasSnapshot.data!.docs.fold(
+              0, (prev, doc) => prev + (doc['total'] as num).toDouble(),
+            );
+            double totalGastos = gastosSnapshot.data!.docs.fold(
+              0, (prev, doc) => prev + (doc['monto'] as num).toDouble(),
+            );
+            double balanceNeto = totalVentas - totalGastos;
+
+            return Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'RESUMEN FINANCIERO',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  _buildCardBalance(context, balanceNeto),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      _buildSmallStat(context, 'Ingresos', totalVentas, Colors.green, Icons.arrow_upward),
+                      const SizedBox(width: 15),
+                      _buildSmallStat(context, 'Egresos', totalGastos, Colors.red, Icons.arrow_downward),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  TabBar(
+                    controller: _tabController,
+                    labelColor: Theme.of(context).colorScheme.primary,
+                    unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                    tabs: const [
+                      Tab(text: 'Ventas'),
+                      Tab(text: 'Gastos'),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildVentasList(ventasSnapshot.data!.docs),
+                        _buildGastosList(gastosSnapshot.data!.docs),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
+      },
+    );
+  }
 
-        return Padding(
-          padding: const EdgeInsets.all(25),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'CAPITAL TOTAL',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey,
-                ),
-              ),
-              Text(
-                '\$${total.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontSize: 40,
-                  fontWeight: FontWeight.bold,
-                  color: customPrimaryTeal,
-                ),
-              ),
-              const Divider(height: 40),
-              const Text(
-                'HISTORIAL',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: snapshot.data!.docs.length,
-                  itemBuilder: (context, index) {
-                    var v = snapshot.data!.docs[index];
-                    String fecha = "S/F";
-                    if (v['fecha'] != null) {
-                      fecha = DateFormat(
-                        'dd/MM/yyyy',
-                      ).format((v['fecha'] as Timestamp).toDate());
-                    }
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      leading: const CircleAvatar(
-                        backgroundColor: Colors.grey,
-                        child: Icon(
-                          Icons.receipt_long,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                      title: Text(
-                        v['cliente'] ?? 'Sin nombre',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      subtitle: Text('${v['cantidad']} piezas • $fecha'),
+  Widget _buildVentasList(List<QueryDocumentSnapshot> ventas) {
+    if (ventas.isEmpty) {
+      return Center(
+        child: Text(
+          'No hay ventas registradas',
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+        ),
+      );
+    }
 
-                      // AQUÍ ESTÁ EL CAMBIO PARA EL PRECIO
-                      trailing: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: customPrimaryTeal.withOpacity(
-                            0.1,
-                          ), // Un fondo suave cian
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '\$${v['total']}',
-                          style: const TextStyle(
-                            fontSize: 20, // ¡Mucho más grande!
-                            fontWeight: FontWeight.bold, // Más grueso
-                            color: customPrimaryTeal,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
+    return ListView.builder(
+      itemCount: ventas.length,
+      itemBuilder: (context, index) {
+        var v = ventas[index];
+        String fecha = "S/F";
+        if (v['fecha'] != null) {
+          fecha = DateFormat('dd/MM/yyyy').format((v['fecha'] as Timestamp).toDate());
+        }
+
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(vertical: 5),
+          leading: CircleAvatar(
+            backgroundColor: Colors.green.withOpacity(0.1),
+            child: const Icon(Icons.add_shopping_cart, color: Colors.green, size: 20),
+          ),
+          title: Text(
+            v['cliente'] ?? 'Sin nombre',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          subtitle: Text('${v['cantidad']} piezas • $fecha'),
+          trailing: Text(
+            '\$${v['total']}',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
           ),
         );
       },
     );
   }
-}
 
-class AjustesPage extends StatelessWidget {
-  const AjustesPage({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
+  Widget _buildGastosList(List<QueryDocumentSnapshot> gastos) {
+    if (gastos.isEmpty) {
+      return Center(
+        child: Text(
+          'No hay gastos registrados',
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: gastos.length,
+      itemBuilder: (context, index) {
+        var g = gastos[index];
+        String fecha = "S/F";
+        if (g['fecha'] != null) {
+          fecha = DateFormat('dd/MM/yyyy').format((g['fecha'] as Timestamp).toDate());
+        }
+
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(vertical: 5),
+          leading: CircleAvatar(
+            backgroundColor: Colors.red.withOpacity(0.1),
+            child: const Icon(Icons.money_off, color: Colors.red, size: 20),
+          ),
+          title: Text(
+            g['descripcion'] ?? 'Sin descripción',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          subtitle: Text(fecha),
+          trailing: Text(
+            '-\$${g['monto'].toStringAsFixed(2)}',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCardBalance(BuildContext context, double monto) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(25),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Configuración del Perfil',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            'BALANCE NETO',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7),
+              fontWeight: FontWeight.w500,
+            ),
           ),
-          SizedBox(height: 10),
           Text(
-            'Estudiante: Gerardo Pérez Sánchez',
-            style: TextStyle(color: Colors.grey),
+            '\$${monto.toStringAsFixed(2)}',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onPrimary,
+              fontSize: 35,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          Text('ID: 186000', style: TextStyle(color: Colors.grey)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSmallStat(BuildContext context, String label, double monto, Color color, IconData icon) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 16, color: color),
+                const SizedBox(width: 5),
+                Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Text(
+              '\$${monto.toStringAsFixed(0)}',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -574,9 +705,11 @@ class LoginPage extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(Icons.lock, size: 80, color: customPrimaryTeal),
-            const Text(
-              'Los Compadres',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            Text(
+              'Ladrillera Los Compadres',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 40),
             TextField(
@@ -618,6 +751,139 @@ class LoginPage extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class GastosPage extends StatefulWidget {
+  const GastosPage({super.key});
+  @override
+  State<GastosPage> createState() => _GastosPageState();
+}
+
+class _GastosPageState extends State<GastosPage> {
+  final _montoController = TextEditingController();
+  final _descController = TextEditingController();
+  bool _cargando = false;
+
+  bool get _esFormularioValido {
+    final monto = double.tryParse(_montoController.text) ?? 0;
+    final desc = _descController.text.trim();
+    return monto > 0 && desc.isNotEmpty;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _montoController.addListener(_onFormChanged);
+    _descController.addListener(_onFormChanged);
+  }
+
+  @override
+  void dispose() {
+    _montoController.removeListener(_onFormChanged);
+    _descController.removeListener(_onFormChanged);
+    _montoController.dispose();
+    _descController.dispose();
+    super.dispose();
+  }
+
+  void _onFormChanged() {
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(25),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'REGISTRAR GASTO',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+          ),
+          const SizedBox(height: 25),
+          TextField(
+            controller: _montoController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: 'Monto (\$)',
+              border: const OutlineInputBorder(),
+              prefixIcon: Icon(Icons.remove_circle, color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+          const SizedBox(height: 15),
+          TextField(
+            controller: _descController,
+            decoration: const InputDecoration(
+              labelText: 'Descripción (ej. Diesel, Leña)',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 30),
+          SizedBox(
+            width: double.infinity,
+            height: 55,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
+              onPressed: _cargando || !_esFormularioValido
+                  ? null
+                  : () async {
+                      if (!_esFormularioValido) return;
+                      double monto = double.tryParse(_montoController.text) ?? 0;
+                      if (monto <= 0) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('❌ El monto debe ser mayor a 0')),
+                        );
+                        return;
+                      }
+                      String desc = _descController.text.trim();
+                      if (desc.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('❌ Ingrese la descripción del gasto')),
+                        );
+                        return;
+                      }
+                      setState(() => _cargando = true);
+                      try {
+                        await FirebaseFirestore.instance
+                            .collection('gastos')
+                            .add({
+                              'monto': monto,
+                              'descripcion': desc,
+                              'fecha': FieldValue.serverTimestamp(),
+                              'id_usuario':
+                                  FirebaseAuth.instance.currentUser?.uid,
+                            });
+
+                        if (!mounted) return;
+                        setState(() => _cargando = false);
+                        _montoController.clear();
+                        _descController.clear();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('✅ Gasto registrado correctamente'),
+                          ),
+                        );
+                      } catch (e) {
+                        if (!mounted) return;
+                        setState(() => _cargando = false);
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text('❌ Error: $e')));
+                      }
+                    },
+              child: _cargando
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Text('GUARDAR GASTO'),
+            ),
+          ),
+        ],
       ),
     );
   }
