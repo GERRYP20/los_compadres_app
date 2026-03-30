@@ -136,176 +136,161 @@ class InicioPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Definimos un esquema de color personalizado para las tarjetas para que resalten
+    final String? uid = FirebaseAuth.instance.currentUser?.uid;
+
     final cardColorVentas = Colors.green.withOpacity(0.1);
-    final cardColorGastos = Colors.red.withOpacity(0.1);
     final textOnCardVentas = Colors.green;
-    final textOnCardGastos = Colors.red;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // SECCIÓN SUPERIOR: TEXTO Y LOGO INTEGRADOS AL ESTILO CAR APP
-          Padding(
-            padding: const EdgeInsets.only(bottom: 30),
-            child: Row(
-              children: [
-                // Columna de texto (izquierda)
-                Expanded(
-                  flex: 2, // Toma más espacio
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Revisar Inventario',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'BIENVENIDO', // Texto principal muy grande y bold
-                        style: TextStyle(
-                          fontSize: 42,
-                          fontWeight: FontWeight.w900, // Equivale a Black
-                          color: Theme.of(context).colorScheme.onSurface,
-                          height: 1.0, // Ajuste de altura de línea
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        '¡Hola, Gerardo Pérez!', // Saludo personalizado
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'Blockera Los Compadres',
-                        style: TextStyle(fontSize: 16, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 20),
-                      // Botón/Contenedor del ID de estudiante
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 15,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: customPrimaryTeal.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          'ID: 186000',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Contenedor de la imagen (derecha) - integrado al diseño
-                Expanded(
-                  flex: 1, // Toma menos espacio
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Image.asset(
-                      'assets/logo.png', // Tu logo exacto
-                      width: 150, // Tamaño adecuado
-                      height: 150,
-                      fit: BoxFit.contain, // Muestra la imagen completa
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('usuarios').doc(uid).get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-          const Divider(),
-          const SizedBox(height: 20),
+        String nombreUsuario = "Usuario";
+        if (snapshot.hasData && snapshot.data!.exists) {
+          var data = snapshot.data!.data() as Map<String, dynamic>;
+          nombreUsuario = data['nombre'] ?? "Usuario";
+        }
 
-          // SECCIÓN DE PANALES DE RESUMEN (DASHBOARD)
-          Text(
-            'RESUMEN DEL DÍA',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.grey,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 15),
-
-          // Fila de Paneles de estadísticas
-          Row(
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Panel 1: Inventario
-              Expanded(
-                child: _buildDashboardCard(
-                  context,
-                  title: 'Inventario Global',
-                  icon: Icons.inventory_2_outlined,
-                  dataValue: '5,000',
-                  unitValue: 'Blocks',
-                  cardColor: customPrimaryTeal.withOpacity(0.1),
-                  textColor: Theme.of(context).colorScheme.onSurface,
-                  subtitle: 'Última actualización: Hace 5m',
+              Padding(
+                padding: const EdgeInsets.only(bottom: 30),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Revisar Inventario',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'BIENVENIDO',
+                            style: TextStyle(
+                              fontSize: 42,
+                              fontWeight: FontWeight.w900,
+                              color: Theme.of(context).colorScheme.onSurface,
+                              height: 1.0,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            '¡Hola, $nombreUsuario!', 
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Blockera Los Compadres',
+                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Image.asset(
+                          'assets/logo.png',
+                          width: 150,
+                          height: 150,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 15), // Espacio entre paneles
-              // Panel 2: Ventas
-              Expanded(
-                child: _buildDashboardCard(
-                  context,
-                  title: 'Ventas de hoy',
-                  icon: Icons.add_shopping_cart,
-                  dataValue: '+ \$12,500', // Marcador de posición
-                  unitValue: 'Recaudado',
-                  cardColor: cardColorVentas,
-                  textColor: textOnCardVentas,
-                  subtitle: 'Venta más reciente: \$2,500',
+
+              const Divider(),
+              const SizedBox(height: 20),
+
+              const Text(
+                'RESUMEN DEL DÍA',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                  fontSize: 14,
                 ),
+              ),
+              const SizedBox(height: 15),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildDashboardCard(
+                      context,
+                      title: 'Inventario Global',
+                      icon: Icons.inventory_2_outlined,
+                      dataValue: '5,000',
+                      unitValue: 'Blocks',
+                      cardColor: customPrimaryTeal.withOpacity(0.1),
+                      textColor: Theme.of(context).colorScheme.onSurface,
+                      subtitle: 'Stock en tiempo real',
+                    ),
+                  ),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: _buildDashboardCard(
+                      context,
+                      title: 'Ventas de hoy',
+                      icon: Icons.add_shopping_cart,
+                      dataValue: '+ \$12,500',
+                      unitValue: 'Recaudado',
+                      cardColor: cardColorVentas,
+                      textColor: textOnCardVentas,
+                      subtitle: 'Cierre parcial',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 15),
+
+              _buildDashboardCard(
+                context,
+                title: 'Ver Stock Completo',
+                icon: Icons.warehouse_outlined,
+                dataValue: 'Ver Todo',
+                unitValue: 'Inventario',
+                cardColor: Theme.of(context).colorScheme.surfaceVariant,
+                textColor: Theme.of(context).colorScheme.onSurface,
+                subtitle: 'Ubicación: Bodega Principal',
+              ),
+              const SizedBox(height: 15),
+              _buildDashboardCard(
+                context,
+                title: 'Ver Ventas Recientes',
+                icon: Icons.monetization_on_outlined,
+                dataValue: 'Ver Historial',
+                unitValue: 'Finanzas',
+                cardColor: Theme.of(context).colorScheme.surfaceVariant,
+                textColor: Theme.of(context).colorScheme.onSurface,
+                subtitle: 'Últimas 10 transacciones',
               ),
             ],
           ),
-          const SizedBox(height: 15),
-
-          // Paneles inferiores
-          _buildDashboardCard(
-            context,
-            title: 'Ver Stock Completo',
-            icon: Icons.warehouse_outlined,
-            dataValue: 'Ver Todo',
-            unitValue: 'Inventario',
-            cardColor: Theme.of(context).colorScheme.surfaceVariant,
-            textColor: Theme.of(context).colorScheme.onSurface,
-            subtitle: 'Ubicación: Blockera Principal - Bodega 1',
-          ),
-          const SizedBox(height: 15),
-          _buildDashboardCard(
-            context,
-            title: 'Ver Ventas Recientes',
-            icon: Icons.monetization_on_outlined,
-            dataValue: 'Ver Historial',
-            unitValue: 'Finanzas',
-            cardColor: Theme.of(context).colorScheme.surfaceVariant,
-            textColor: Theme.of(context).colorScheme.onSurface,
-            subtitle: 'Vea las últimas 10 ventas registradas',
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  // WIDGET HELPER: Crea una tarjeta de Dashboard reutilizable
   Widget _buildDashboardCard(
     BuildContext context, {
     required String title,
@@ -331,11 +316,7 @@ class InicioPage extends StatelessWidget {
             children: [
               Text(
                 unitValue,
-                style: TextStyle(
-                  color: textColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 12),
               ),
               Icon(icon, size: 16, color: Colors.grey),
             ],
@@ -343,19 +324,11 @@ class InicioPage extends StatelessWidget {
           const SizedBox(height: 5),
           Text(
             dataValue,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: textColor,
-            ),
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor),
           ),
           Text(
             title,
-            style: TextStyle(
-              color: textColor,
-              fontWeight: FontWeight.normal,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: textColor, fontWeight: FontWeight.normal, fontSize: 14),
           ),
           const SizedBox(height: 10),
           Text(subtitle, style: TextStyle(color: Colors.grey, fontSize: 11)),
@@ -397,51 +370,58 @@ class StockPage extends StatelessWidget {
               ),
               onPressed: () async {
                 int cant = int.tryParse(cantidadController.text) ?? 0;
-                if (cant > 0) {
-                  try {
-                    await FirebaseFirestore.instance.runTransaction((tx) async {
-                      // 1. Obtener referencia del Stock Global
-                      DocumentReference stockRef = FirebaseFirestore.instance
-                          .collection('inventario')
-                          .doc('global');
+                if (cant <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('❌ Ingrese una cantidad válida mayor a 0')),
+                  );
+                  return;
+                }
+                if (cant > 999999) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('❌ La cantidad máxima es 999,999')),
+                  );
+                  return;
+                }
+                try {
+                  await FirebaseFirestore.instance.runTransaction((tx) async {
+                    DocumentReference stockRef = FirebaseFirestore.instance
+                        .collection('inventario')
+                        .doc('global');
 
-                      DocumentSnapshot snap = await tx.get(stockRef);
-
-                      // 2. Actualizar el contador global
-                      tx.update(stockRef, {
-                        'piezas_disponibles':
-                            (snap['piezas_disponibles'] ?? 0) + cant,
-                      });
-
-                      // 3. REGISTRAR EN EL HISTORIAL (Colección nueva)
-                      tx.set(
-                        FirebaseFirestore.instance
-                            .collection('historial_stock')
-                            .doc(),
-                        {
-                          'cantidad': cant,
-                          'fecha': FieldValue.serverTimestamp(),
-                          'id_usuario': FirebaseAuth.instance.currentUser?.uid,
-                          'usuario_nombre':
-                              FirebaseAuth.instance.currentUser?.email ??
-                              'Gerardo',
-                        },
-                      );
+                    DocumentSnapshot snap = await tx.get(stockRef);
+                    
+                    int stockActual = (snap['piezas_disponibles'] as num?)?.toInt() ?? 0;
+                    tx.update(stockRef, {
+                      'piezas_disponibles': stockActual + cant,
                     });
 
-                    if (!context.mounted) return;
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('✅ Stock e Historial actualizados'),
-                      ),
+                    tx.set(
+                      FirebaseFirestore.instance
+                          .collection('historial_stock')
+                          .doc(),
+                      {
+                        'cantidad': cant,
+                        'fecha': FieldValue.serverTimestamp(),
+                        'id_usuario': FirebaseAuth.instance.currentUser?.uid,
+                        'usuario_nombre':
+                            FirebaseAuth.instance.currentUser?.email ??
+                            'Gerardo',
+                      },
                     );
-                  } catch (e) {
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text('❌ Error: $e')));
-                  }
+                  });
+
+                  if (!context.mounted) return;
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Stock e Historial actualizados'),
+                    ),
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('❌ Error: $e')));
                 }
               },
               child: const Text(
@@ -466,9 +446,20 @@ class StockPage extends StatelessWidget {
               .doc('global')
               .snapshots(),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) return const LinearProgressIndicator();
+            if (!snapshot.hasData || !snapshot.data!.exists) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.inventory_2_outlined, size: 50, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    const SizedBox(height: 10),
+                    Text('Sin datos de inventario', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                  ],
+                ),
+              );
+            }
             var data = snapshot.data!.data() as Map<String, dynamic>;
-            int current = data['piezas_disponibles'] ?? 0;
+            int current = (data['piezas_disponibles'] as num?)?.toInt() ?? 0;
 
             return Container(
               width: double.infinity,
@@ -556,7 +547,7 @@ class StockPage extends StatelessWidget {
                 itemBuilder: (context, index) {
                   var v = snapshot.data!.docs[index];
                   String fecha = "Pendiente...";
-                  if (v['fecha'] != null) {
+                  if (v['fecha'] != null && v['fecha'] is Timestamp) {
                     fecha = DateFormat(
                       'dd/MM/yyyy • HH:mm',
                     ).format((v['fecha'] as Timestamp).toDate());
@@ -650,7 +641,7 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
           TextField(
             controller: _clienteController,
             decoration: const InputDecoration(
-              labelText: 'Cliente',
+              labelText: 'Nombre del Cliente',
               border: OutlineInputBorder(),
             ),
           ),
@@ -684,27 +675,33 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
                   ? null
                   : () async {
                       if (!_esFormularioValido) return;
-                      setState(() => _cargando = true);
                       int cant = int.tryParse(_cantidadController.text) ?? 0;
                       if (cant <= 0) {
-                        setState(() => _cargando = false);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('❌ La cantidad debe ser mayor a 0'),
-                          ),
+                          const SnackBar(content: Text('❌ La cantidad debe ser mayor a 0')),
+                        );
+                        return;
+                      }
+                      if (cant > 999999) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('❌ La cantidad máxima es 999,999')),
                         );
                         return;
                       }
                       String cliente = _clienteController.text.trim();
                       if (cliente.isEmpty) {
-                        setState(() => _cargando = false);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('❌ Ingrese el nombre del cliente'),
-                          ),
+                          const SnackBar(content: Text('❌ Ingrese el nombre del cliente')),
                         );
                         return;
                       }
+                      if (cliente.length > 100) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('❌ El nombre del cliente es muy largo (máx. 100 caracteres)')),
+                        );
+                        return;
+                      }
+                      setState(() => _cargando = true);
                       try {
                         await FirebaseFirestore.instance.runTransaction((
                           tx,
@@ -714,9 +711,14 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
                               .collection('inventario')
                               .doc('global');
                           DocumentSnapshot snap = await tx.get(stockRef);
+                          
+                          int stockActual = (snap['piezas_disponibles'] as num?)?.toInt() ?? 0;
+                          if (stockActual < cant) {
+                            throw Exception('STOCK_INSUFFICIENT');
+                          }
+                          
                           tx.update(stockRef, {
-                            'piezas_disponibles':
-                                snap['piezas_disponibles'] - cant,
+                            'piezas_disponibles': stockActual - cant,
                           });
                           tx.set(
                             FirebaseFirestore.instance
@@ -731,7 +733,6 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
                           );
                         });
 
-                        // SOLUCIÓN AL ERROR: Verificar si el State sigue montado
                         if (!mounted) return;
                         setState(() => _cargando = false);
                         _clienteController.clear();
@@ -742,9 +743,12 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
                       } catch (e) {
                         if (!mounted) return;
                         setState(() => _cargando = false);
+                        String mensaje = e.toString().contains('STOCK_INSUFFICIENT')
+                            ? '❌ Stock insuficiente. No hay suficientes blocks disponibles.'
+                            : '❌ Error al registrar la venta';
                         ScaffoldMessenger.of(
                           context,
-                        ).showSnackBar(SnackBar(content: Text('❌ Error: $e')));
+                        ).showSnackBar(SnackBar(content: Text(mensaje)));
                       }
                     },
               child: _cargando
@@ -792,13 +796,19 @@ class _FinanzasPageState extends State<FinanzasPage>
               return const Center(child: CircularProgressIndicator());
             }
 
-            double totalVentas = ventasSnapshot.data!.docs.fold(
-              0,
-              (prev, doc) => prev + (doc['total'] as num).toDouble(),
+            double totalVentas = ventasSnapshot.data!.docs.fold<double>(
+              0.0,
+              (prev, doc) {
+                final value = (doc['total'] as num?)?.toDouble();
+                return prev + (value ?? 0.0);
+              },
             );
-            double totalGastos = gastosSnapshot.data!.docs.fold(
-              0,
-              (prev, doc) => prev + (doc['monto'] as num).toDouble(),
+            double totalGastos = gastosSnapshot.data!.docs.fold<double>(
+              0.0,
+              (prev, doc) {
+                final value = (doc['monto'] as num?)?.toDouble();
+                return prev + (value ?? 0.0);
+              },
             );
             double balanceNeto = totalVentas - totalGastos;
 
@@ -884,7 +894,7 @@ class _FinanzasPageState extends State<FinanzasPage>
       itemBuilder: (context, index) {
         var v = ventas[index];
         String fecha = "S/F";
-        if (v['fecha'] != null) {
+        if (v['fecha'] != null && v['fecha'] is Timestamp) {
           fecha = DateFormat(
             'dd/MM/yyyy',
           ).format((v['fecha'] as Timestamp).toDate());
@@ -935,7 +945,7 @@ class _FinanzasPageState extends State<FinanzasPage>
       itemBuilder: (context, index) {
         var g = gastos[index];
         String fecha = "S/F";
-        if (g['fecha'] != null) {
+        if (g['fecha'] != null && g['fecha'] is Timestamp) {
           fecha = DateFormat(
             'dd/MM/yyyy',
           ).format((g['fecha'] as Timestamp).toDate());
@@ -1180,11 +1190,42 @@ class _LoginPageState extends State<LoginPage> {
                           email: correoFinal,
                           password: password,
                         );
+                      } on FirebaseAuthException catch (e) {
+                        if (!context.mounted) return;
+                        String mensaje;
+                        switch (e.code) {
+                          case 'user-not-found':
+                            mensaje = 'Usuario no encontrado';
+                            break;
+                          case 'wrong-password':
+                            mensaje = 'Contraseña incorrecta';
+                            break;
+                          case 'user-disabled':
+                            mensaje = 'Cuenta deshabilitada';
+                            break;
+                          case 'invalid-email':
+                            mensaje = 'Correo electrónico inválido';
+                            break;
+                          case 'too-many-requests':
+                            mensaje = 'Demasiados intentos. Intenta más tarde';
+                            break;
+                          case 'network-request-failed':
+                            mensaje = 'Error de conexión. Verifica tu internet';
+                            break;
+                          default:
+                            mensaje = 'Error de acceso. Verifica tus credenciales';
+                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('❌ $mensaje'),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
                       } catch (e) {
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Error: Revisa tu usuario o clave'),
+                            content: Text('❌ Error inesperado'),
                             backgroundColor: Colors.redAccent,
                           ),
                         );
@@ -1264,7 +1305,7 @@ class _GastosPageState extends State<GastosPage> {
           const SizedBox(height: 25),
           TextField(
             controller: _montoController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: TextInputType.number,
             decoration: InputDecoration(
               labelText: 'Monto (\$)',
               border: const OutlineInputBorder(),
@@ -1278,7 +1319,7 @@ class _GastosPageState extends State<GastosPage> {
           TextField(
             controller: _descController,
             decoration: const InputDecoration(
-              labelText: 'Descripción (ej. Diesel, Leña)',
+              labelText: 'Descripción (ej. Pago de cemento, tepojal, etc.)',
               border: OutlineInputBorder(),
             ),
           ),
@@ -1299,18 +1340,26 @@ class _GastosPageState extends State<GastosPage> {
                           double.tryParse(_montoController.text) ?? 0;
                       if (monto <= 0) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('❌ El monto debe ser mayor a 0'),
-                          ),
+                          const SnackBar(content: Text('❌ El monto debe ser mayor a 0')),
+                        );
+                        return;
+                      }
+                      if (monto > 9999999) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('❌ El monto máximo es 9,999,999')),
                         );
                         return;
                       }
                       String desc = _descController.text.trim();
                       if (desc.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('❌ Ingrese la descripción del gasto'),
-                          ),
+                          const SnackBar(content: Text('❌ Ingrese la descripción del gasto')),
+                        );
+                        return;
+                      }
+                      if (desc.length > 200) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('❌ La descripción es muy larga (máx. 200 caracteres)')),
                         );
                         return;
                       }
