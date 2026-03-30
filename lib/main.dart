@@ -861,11 +861,16 @@ class FinanzasPage extends StatefulWidget {
 class _FinanzasPageState extends State<FinanzasPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late DateTime _selectedDate;
+  late DateTime _visibleMonth;
+  bool _isCalendarExpanded = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _selectedDate = DateTime.now();
+    _visibleMonth = DateTime.now();
   }
 
   @override
@@ -874,25 +879,25 @@ class _FinanzasPageState extends State<FinanzasPage>
     super.dispose();
   }
 
+  DateTime get _startOfSelectedDay => DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+  DateTime get _endOfSelectedDay => DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59);
+
   @override
   Widget build(BuildContext context) {
-    final DateTime ahora = DateTime.now();
-    final DateTime comienzoHoy = DateTime(ahora.year, ahora.month, ahora.day);
-    final DateTime finHoy = DateTime(ahora.year, ahora.month, ahora.day, 23, 59, 59);
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('ventas')
-          .where('fecha', isGreaterThanOrEqualTo: comienzoHoy)
-          .where('fecha', isLessThanOrEqualTo: finHoy)
+          .where('fecha', isGreaterThanOrEqualTo: _startOfSelectedDay)
+          .where('fecha', isLessThanOrEqualTo: _endOfSelectedDay)
           .orderBy('fecha', descending: true)
           .snapshots(),
       builder: (context, ventasSnapshot) {
-        return StreamBuilder<QuerySnapshot>(
+          return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
               .collection('gastos')
-              .where('fecha', isGreaterThanOrEqualTo: comienzoHoy)
-              .where('fecha', isLessThanOrEqualTo: finHoy)
+              .where('fecha', isGreaterThanOrEqualTo: _startOfSelectedDay)
+              .where('fecha', isLessThanOrEqualTo: _endOfSelectedDay)
               .orderBy('fecha', descending: true)
               .snapshots(),
           builder: (context, gastosSnapshot) {
@@ -925,15 +930,69 @@ class _FinanzasPageState extends State<FinanzasPage>
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      Text(
-                        DateFormat('d MMMM').format(ahora).toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.bold,
+                      TextButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _selectedDate = DateTime.now();
+                            _visibleMonth = DateTime.now();
+                            _isCalendarExpanded = false;
+                          });
+                        },
+                        icon: const Icon(Icons.today, size: 16),
+                        label: const Text('HOY'),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 10),
+                  GestureDetector(
+                    onTap: () => setState(() => _isCalendarExpanded = !_isCalendarExpanded),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.calendar_today, size: 18, color: Theme.of(context).colorScheme.primary),
+                              const SizedBox(width: 8),
+                              Text(
+                                DateFormat('d MMMM yyyy').format(_selectedDate).toUpperCase(),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Icon(
+                            _isCalendarExpanded ? Icons.expand_less : Icons.expand_more,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  AnimatedCrossFade(
+                    firstChild: const SizedBox.shrink(),
+                    secondChild: Column(
+                      children: [
+                        const SizedBox(height: 10),
+                        _buildMiniCalendar(context),
+                      ],
+                    ),
+                    crossFadeState: _isCalendarExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                    duration: const Duration(milliseconds: 200),
                   ),
                   const SizedBox(height: 15),
                   _buildCardBalance(context, balanceNeto),
@@ -1142,6 +1201,138 @@ class _FinanzasPageState extends State<FinanzasPage>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMiniCalendar(BuildContext context) {
+    final List<String> weekDays = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'];
+    final DateTime now = DateTime.now();
+    final DateTime firstDayOfMonth = DateTime(_visibleMonth.year, _visibleMonth.month, 1);
+    final int daysInMonth = DateTime(_visibleMonth.year, _visibleMonth.month + 1, 0).day;
+    final int startWeekday = firstDayOfMonth.weekday % 7;
+    final bool isCurrentMonth = _visibleMonth.year == now.year && _visibleMonth.month == now.month;
+    final bool canGoNext = !isCurrentMonth;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left, size: 24),
+                onPressed: () {
+                  setState(() {
+                    _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month - 1, 1);
+                  });
+                },
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+              Text(
+                DateFormat('MMMM yyyy').format(_visibleMonth).toUpperCase(),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.chevron_right, size: 24, color: canGoNext ? null : Colors.grey),
+                onPressed: canGoNext
+                    ? () {
+                        setState(() {
+                          _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month + 1, 1);
+                        });
+                      }
+                    : null,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: weekDays
+                .map((day) => SizedBox(
+                      width: 36,
+                      child: Center(
+                        child: Text(
+                          day,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(height: 4),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              childAspectRatio: 1,
+            ),
+            itemCount: startWeekday + daysInMonth,
+            itemBuilder: (context, index) {
+              if (index < startWeekday) {
+                return const SizedBox.shrink();
+              }
+              final int day = index - startWeekday + 1;
+              final DateTime date = DateTime(_visibleMonth.year, _visibleMonth.month, day);
+              final bool isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+              final bool isSelected = date.year == _selectedDate.year &&
+                  date.month == _selectedDate.month &&
+                  date.day == _selectedDate.day;
+              final bool isFuture = date.isAfter(DateTime(now.year, now.month, now.day));
+
+              return GestureDetector(
+                onTap: isFuture
+                    ? null
+                    : () {
+                        setState(() {
+                          _selectedDate = date;
+                          _visibleMonth = DateTime(date.year, date.month, 1);
+                        });
+                      },
+                child: Container(
+                  margin: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: isSelected ? customPrimaryTeal : (isToday ? customPrimaryTeal.withOpacity(0.1) : null),
+                    borderRadius: BorderRadius.circular(8),
+                    border: isToday && !isSelected
+                        ? Border.all(color: customPrimaryTeal, width: 1.5)
+                        : null,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$day',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isToday || isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isFuture
+                            ? Colors.grey.withOpacity(0.4)
+                            : (isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
