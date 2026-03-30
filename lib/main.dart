@@ -33,7 +33,7 @@ class _LosCompadresAppState extends State<LosCompadresApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Ladrillera Los Compadres',
+      title: 'Blockera Los Compadres',
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -186,7 +186,7 @@ class InicioPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'Ladrillera Los Compadres',
+                        'Blockera Los Compadres',
                         style: TextStyle(fontSize: 16, color: Colors.grey),
                       ),
                       const SizedBox(height: 20),
@@ -287,7 +287,7 @@ class InicioPage extends StatelessWidget {
             unitValue: 'Inventario',
             cardColor: Theme.of(context).colorScheme.surfaceVariant,
             textColor: Theme.of(context).colorScheme.onSurface,
-            subtitle: 'Ubicación: Ladrillera Principal - Bodega 1',
+            subtitle: 'Ubicación: Blockera Principal - Bodega 1',
           ),
           const SizedBox(height: 15),
           _buildDashboardCard(
@@ -368,6 +368,7 @@ class InicioPage extends StatelessWidget {
 class StockPage extends StatelessWidget {
   const StockPage({super.key});
 
+  // FUNCIÓN PARA EL DIÁLOGO (Actualizada para guardar en el historial)
   void _mostrarDialogoAgregar(BuildContext context, int stockActual) {
     final TextEditingController cantidadController = TextEditingController();
 
@@ -382,6 +383,7 @@ class StockPage extends StatelessWidget {
             decoration: const InputDecoration(
               labelText: '¿Cuántos ingresan?',
               border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.inventory),
             ),
           ),
           actions: [
@@ -398,21 +400,41 @@ class StockPage extends StatelessWidget {
                 if (cant > 0) {
                   try {
                     await FirebaseFirestore.instance.runTransaction((tx) async {
-                      DocumentSnapshot snap = await tx.get(
-                        FirebaseFirestore.instance
-                            .collection('inventario')
-                            .doc('global'),
-                      );
-                      tx.update(snap.reference, {
-                        'piezas_disponibles': snap['piezas_disponibles'] + cant,
+                      // 1. Obtener referencia del Stock Global
+                      DocumentReference stockRef = FirebaseFirestore.instance
+                          .collection('inventario')
+                          .doc('global');
+
+                      DocumentSnapshot snap = await tx.get(stockRef);
+
+                      // 2. Actualizar el contador global
+                      tx.update(stockRef, {
+                        'piezas_disponibles':
+                            (snap['piezas_disponibles'] ?? 0) + cant,
                       });
+
+                      // 3. REGISTRAR EN EL HISTORIAL (Colección nueva)
+                      tx.set(
+                        FirebaseFirestore.instance
+                            .collection('historial_stock')
+                            .doc(),
+                        {
+                          'cantidad': cant,
+                          'fecha': FieldValue.serverTimestamp(),
+                          'id_usuario': FirebaseAuth.instance.currentUser?.uid,
+                          'usuario_nombre':
+                              FirebaseAuth.instance.currentUser?.email ??
+                              'Gerardo',
+                        },
+                      );
                     });
 
-                    // SOLUCIÓN AL ERROR: Verificar si el context sigue activo
                     if (!context.mounted) return;
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('✅ Stock actualizado')),
+                      const SnackBar(
+                        content: Text('✅ Stock e Historial actualizados'),
+                      ),
                     );
                   } catch (e) {
                     if (!context.mounted) return;
@@ -435,50 +457,142 @@ class StockPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('inventario')
-          .doc('global')
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData)
-          return const Center(child: CircularProgressIndicator());
-        var data = snapshot.data!.data() as Map<String, dynamic>;
-        int current = data['piezas_disponibles'] ?? 0;
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+    return Column(
+      children: [
+        // --- PARTE SUPERIOR: VISUALIZACIÓN DEL STOCK ---
+        StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('inventario')
+              .doc('global')
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) return const LinearProgressIndicator();
+            var data = snapshot.data!.data() as Map<String, dynamic>;
+            int current = data['piezas_disponibles'] ?? 0;
+
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              decoration: BoxDecoration(
+                color: customPrimaryTeal.withOpacity(0.1),
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'Blocks en Almacén',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  Text(
+                    '$current',
+                    style: TextStyle(
+                      fontSize: 100,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: () => _mostrarDialogoAgregar(context, current),
+                    icon: const Icon(Icons.add_circle_outline),
+                    label: const Text('AÑADIR BLOCKS'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: customPrimaryTeal,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 30,
+                        vertical: 15,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+
+        // --- PARTE INFERIOR: HISTORIAL DE ENTRADAS ---
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
             children: [
-              Text(
-                'Blocks en Almacén',
+              const Icon(Icons.history, size: 20, color: Colors.grey),
+              const SizedBox(width: 10),
+              const Text(
+                'HISTORIAL DE ENTRADAS',
                 style: TextStyle(
-                  fontSize: 20,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              Text(
-                '$current',
-                style: TextStyle(
-                  fontSize: 100,
                   fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 50),
-              ElevatedButton.icon(
-                onPressed: () => _mostrarDialogoAgregar(context, current),
-                icon: const Icon(Icons.add_circle_outline),
-                label: const Text('AÑADIR BLOCKS'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: customPrimaryTeal,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.all(20),
+                  letterSpacing: 1.2,
                 ),
               ),
             ],
           ),
-        );
-      },
+        ),
+
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('historial_stock')
+                .orderBy('fecha', descending: true)
+                .limit(15) // Mostramos las últimas 15 entradas
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData)
+                return const Center(child: CircularProgressIndicator());
+              if (snapshot.data!.docs.isEmpty) {
+                return const Center(
+                  child: Text('No hay registros de entradas todavía.'),
+                );
+              }
+
+              return ListView.builder(
+                itemCount: snapshot.data!.docs.length,
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                itemBuilder: (context, index) {
+                  var v = snapshot.data!.docs[index];
+                  String fecha = "Pendiente...";
+                  if (v['fecha'] != null) {
+                    fecha = DateFormat(
+                      'dd/MM/yyyy • HH:mm',
+                    ).format((v['fecha'] as Timestamp).toDate());
+                  }
+
+                  return Card(
+                    elevation: 0,
+                    margin: const EdgeInsets.only(bottom: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                    ),
+                    child: ListTile(
+                      leading: const CircleAvatar(
+                        backgroundColor: Colors.green,
+                        child: Icon(Icons.arrow_upward, color: Colors.white),
+                      ),
+                      title: Text(
+                        '+ ${v['cantidad']} piezas',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Fecha: $fecha\nRegistró: ${v['usuario_nombre']}',
+                      ),
+                      isThreeLine: true,
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -937,66 +1051,158 @@ class _FinanzasPageState extends State<FinanzasPage>
   }
 }
 
-class LoginPage extends StatelessWidget {
+class LoginPage extends StatefulWidget {
   final VoidCallback onThemeToggle;
-  LoginPage({super.key, required this.onThemeToggle});
-  final _e = TextEditingController();
-  final _p = TextEditingController();
+  const LoginPage({super.key, required this.onThemeToggle});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final _e = TextEditingController(); // Usuario/Alias
+  final _p = TextEditingController(); // Contraseña
+  bool _isObscured = true; // Controla la visibilidad
+
+  @override
+  void dispose() {
+    _e.dispose();
+    _p.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(30),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.lock, size: 80, color: customPrimaryTeal),
-            Text(
-              'Ladrillera Los Compadres',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(35),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // LOGO DE LA LADRILLERA
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  child: Image.asset(
+                    'assets/logo2.png',
+                    width: 200,
+                    height: 200,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const Icon(Icons.business, size: 100, color: Colors.grey),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                Text(
+                  'LOS COMPADRES',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                const Text(
+                  'Acceso Administrativo',
+                  style: TextStyle(color: Colors.grey, letterSpacing: 1.5),
+                ),
+
+                const SizedBox(height: 40),
+
+                // CAMPO DE USUARIO
+                TextField(
+                  controller: _e,
+                  decoration: InputDecoration(
+                    labelText: 'Usuario / Alias',
+                    prefixIcon: const Icon(Icons.person_outline),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                ),
+                
+                const SizedBox(height: 20),
+
+                // CAMPO DE CONTRASEÑA CON BOTÓN DE VISIBILIDAD
+                TextField(
+                  controller: _p,
+                  obscureText: _isObscured, // Usa el estado de la variable
+                  decoration: InputDecoration(
+                    labelText: 'Contraseña',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    // AQUÍ ESTÁ EL BOTÓN DEL OJO
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isObscured ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isObscured = !_isObscured; // Cambia el estado
+                        });
+                      },
+                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                ),
+
+                const SizedBox(height: 35),
+
+                // BOTÓN DE ACCESO
+                SizedBox(
+                  width: double.infinity,
+                  height: 60,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: customPrimaryTeal,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    ),
+                    onPressed: () async {
+                      String rawInput = _e.text.trim();
+                      String password = _p.text.trim();
+
+                      if (rawInput.isEmpty || password.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Ingresa tus credenciales')),
+                        );
+                        return;
+                      }
+
+                      String correoFinal = rawInput.contains('@') 
+                          ? rawInput 
+                          : '$rawInput@compadres.com';
+
+                      try {
+                        await FirebaseAuth.instance.signInWithEmailAndPassword(
+                          email: correoFinal,
+                          password: password,
+                        );
+                      } catch (e) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Error: Revisa tu usuario o clave'),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
+                      }
+                    },
+                    child: const Text('ENTRAR AL SISTEMA', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                
+                const SizedBox(height: 20),
+                
+                IconButton(
+                  onPressed: widget.onThemeToggle,
+                  icon: const Icon(Icons.brightness_6_outlined, color: Colors.grey),
+                ),
+              ],
             ),
-            const SizedBox(height: 40),
-            TextField(
-              controller: _e,
-              decoration: const InputDecoration(
-                labelText: 'Correo',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 15),
-            TextField(
-              controller: _p,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Contraseña',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 30),
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton(
-                onPressed: () async {
-                  try {
-                    await FirebaseAuth.instance.signInWithEmailAndPassword(
-                      email: _e.text.trim(),
-                      password: _p.text.trim(),
-                    );
-                  } catch (e) {
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error de acceso: $e')),
-                    );
-                  }
-                },
-                child: const Text('ENTRAR'),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
