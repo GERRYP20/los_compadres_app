@@ -676,6 +676,7 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
   final _cantidadController = TextEditingController();
   double _precio = 6.0;
   bool _cargando = false;
+  String _status = 'paid';
 
   bool get _esFormularioValido {
     final cantidad = int.tryParse(_cantidadController.text) ?? 0;
@@ -742,6 +743,79 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
                 .map((p) => DropdownMenuItem(value: p, child: Text('\$ $p')))
                 .toList(),
             onChanged: (v) => setState(() => _precio = v!),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.withOpacity(0.2)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Estado del pago:',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
+                Row(
+                  children: [
+                    ChoiceChip(
+                      label: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.check_circle,
+                            size: 16,
+                            color: _status == 'paid' ? Colors.white : Colors.green,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Pagado',
+                            style: TextStyle(
+                              color: _status == 'paid' ? Colors.white : Colors.green,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                      selected: _status == 'paid',
+                      selectedColor: Colors.green,
+                      onSelected: (selected) {
+                        if (selected) setState(() => _status = 'paid');
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      label: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.access_time,
+                            size: 16,
+                            color: _status == 'pending' ? Colors.white : Colors.orange,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Pendiente',
+                            style: TextStyle(
+                              color: _status == 'pending' ? Colors.white : Colors.orange,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                      selected: _status == 'pending',
+                      selectedColor: Colors.orange,
+                      onSelected: (selected) {
+                        if (selected) setState(() => _status = 'pending');
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 40),
           SizedBox(
@@ -818,6 +892,9 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
                               'cantidad': cant,
                               'total': cant * _precio,
                               'fecha': FieldValue.serverTimestamp(),
+                              'status': _status,
+                              if (_status == 'pending')
+                                'fecha_pago': FieldValue.serverTimestamp(),
                             },
                           );
                         });
@@ -826,8 +903,11 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
                         setState(() => _cargando = false);
                         _clienteController.clear();
                         _cantidadController.clear();
+                        String mensaje = _status == 'paid' 
+                            ? '✅ Venta registrada como PAGADA' 
+                            : '✅ Venta registrada como PENDIENTE';
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('✅ Venta Exitosa')),
+                          SnackBar(content: Text(mensaje)),
                         );
                       } catch (e) {
                         if (!mounted) return;
@@ -864,6 +944,7 @@ class _FinanzasPageState extends State<FinanzasPage>
   late DateTime _selectedDate;
   late DateTime _visibleMonth;
   bool _isCalendarExpanded = false;
+  String _ventasFilter = 'all';
 
   @override
   void initState() {
@@ -905,12 +986,21 @@ class _FinanzasPageState extends State<FinanzasPage>
               return const Center(child: CircularProgressIndicator());
             }
 
-            double totalVentas = ventasSnapshot.data!.docs.fold<double>(0.0, (prev, doc) {
+            final List<QueryDocumentSnapshot> allVentas = ventasSnapshot.data!.docs;
+            final List<QueryDocumentSnapshot> pendingVentas = allVentas.where((doc) => (doc['status'] as String?) == 'pending').toList();
+
+            double totalVentas = allVentas.fold<double>(0.0, (prev, doc) {
+              final status = (doc['status'] as String?) ?? 'paid';
+              if (status == 'pending') return prev;
               final value = (doc['total'] as num?)?.toDouble();
               return prev + (value ?? 0.0);
             });
             double totalGastos = gastosSnapshot.data!.docs.fold<double>(0.0, (prev, doc) {
               final value = (doc['monto'] as num?)?.toDouble();
+              return prev + (value ?? 0.0);
+            });
+            double totalPendiente = pendingVentas.fold<double>(0.0, (prev, doc) {
+              final value = (doc['total'] as num?)?.toDouble();
               return prev + (value ?? 0.0);
             });
             double balanceNeto = totalVentas - totalGastos;
@@ -1000,11 +1090,80 @@ class _FinanzasPageState extends State<FinanzasPage>
                   Row(
                     children: [
                       _buildSmallStat(context, 'Ingresos', totalVentas, Colors.green, Icons.arrow_upward),
-                      const SizedBox(width: 15),
+                      const SizedBox(width: 10),
                       _buildSmallStat(context, 'Egresos', totalGastos, Colors.red, Icons.arrow_downward),
+                      const SizedBox(width: 10),
+                      _buildSmallStat(context, 'Pendiente', totalPendiente, Colors.orange, Icons.access_time),
                     ],
                   ),
                   const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _ventasFilter = 'all'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _ventasFilter == 'all' ? customPrimaryTeal : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'Todas',
+                                  style: TextStyle(
+                                    color: _ventasFilter == 'all' ? Colors.white : Theme.of(context).colorScheme.onSurface,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _ventasFilter = 'pending'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _ventasFilter == 'pending' ? Colors.orange : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.access_time,
+                                      size: 14,
+                                      color: _ventasFilter == 'pending' ? Colors.white : Colors.orange,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Pendientes',
+                                      style: TextStyle(
+                                        color: _ventasFilter == 'pending' ? Colors.white : Colors.orange,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 15),
                   TabBar(
                     controller: _tabController,
                     labelColor: Theme.of(context).colorScheme.primary,
@@ -1019,7 +1178,10 @@ class _FinanzasPageState extends State<FinanzasPage>
                     child: TabBarView(
                       controller: _tabController,
                       children: [
-                        _buildVentasList(ventasSnapshot.data!.docs),
+                        _buildVentasList(
+                          _ventasFilter == 'all' ? allVentas : pendingVentas,
+                          pendingVentas,
+                        ),
                         _buildGastosList(gastosSnapshot.data!.docs),
                       ],
                     ),
@@ -1035,10 +1197,20 @@ class _FinanzasPageState extends State<FinanzasPage>
 
   // --- MÉTODOS HELPER (Se mantienen con tu diseño) ---
 
-  Widget _buildVentasList(List<QueryDocumentSnapshot> ventas) {
+  Widget _buildVentasList(List<QueryDocumentSnapshot> ventas, List<QueryDocumentSnapshot> allPending) {
     if (ventas.isEmpty) {
       return Center(
-        child: Text('No hay ventas hoy', style: TextStyle(color: Colors.grey)),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle_outline, size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 10),
+            Text(
+              _ventasFilter == 'pending' ? 'No hay ventas pendientes' : 'No hay ventas hoy',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
       );
     }
 
@@ -1046,38 +1218,117 @@ class _FinanzasPageState extends State<FinanzasPage>
       itemCount: ventas.length,
       itemBuilder: (context, index) {
         var v = ventas[index];
-        // Cambiamos a formato de hora porque la fecha ya sabemos que es hoy
         String hora = "S/F";
         if (v['fecha'] != null) {
           hora = DateFormat('HH:mm').format((v['fecha'] as Timestamp).toDate());
         }
 
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(vertical: 5),
-          leading: CircleAvatar(
-            backgroundColor: Colors.green.withOpacity(0.1),
-            child: const Icon(
-              Icons.add_shopping_cart,
-              color: Colors.green,
-              size: 20,
-            ),
+        String status = (v['status'] as String?) ?? 'paid';
+        bool isPending = status == 'pending';
+        bool showMarkPaid = isPending && _ventasFilter == 'pending';
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(color: Colors.grey.withOpacity(0.2)),
           ),
-          title: Text(
-            v['cliente'] ?? 'Sin nombre',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          subtitle: Text('${v['cantidad']} piezas • $hora'),
-          trailing: Text(
-            '\$${v['total']}',
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.green,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: isPending ? Colors.orange.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                  child: Icon(
+                    Icons.add_shopping_cart,
+                    color: isPending ? Colors.orange : Colors.green,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        v['cliente'] ?? 'Sin nombre',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        '${v['cantidad']} piezas • $hora',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '\$${v['total']}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isPending ? Colors.orange : Colors.green,
+                      ),
+                    ),
+                    Icon(
+                      isPending ? Icons.access_time : Icons.check_circle,
+                      size: 16,
+                      color: isPending ? Colors.orange : Colors.green,
+                    ),
+                  ],
+                ),
+                if (showMarkPaid) ...[
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => _marcarComoPagada(context, v),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      minimumSize: Size.zero,
+                    ),
+                    child: const Text('Pagar', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ],
             ),
           ),
         );
       },
     );
+  }
+
+  Future<void> _marcarComoPagada(BuildContext context, QueryDocumentSnapshot venta) async {
+    try {
+      await FirebaseFirestore.instance.runTransaction((tx) async {
+        tx.update(venta.reference, {
+          'status': 'paid',
+          'fecha_pago': FieldValue.serverTimestamp(),
+        });
+      });
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✅ Venta de ${venta['cliente']} marcada como PAGADA'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Widget _buildGastosList(List<QueryDocumentSnapshot> gastos) {
@@ -1708,23 +1959,57 @@ class _GastosPageState extends State<GastosPage> {
   }
 }
 
-class EstadisticasPage extends StatelessWidget {
+class EstadisticasPage extends StatefulWidget {
   const EstadisticasPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // LÓGICA DE SEMANA ACTUAL (Lunes a Domingo)
-    final ahora = DateTime.now();
-    final inicioSemana = ahora.subtract(Duration(days: ahora.weekday - 1));
-    final comienzoSemana = DateTime(
-      inicioSemana.year,
-      inicioSemana.month,
-      inicioSemana.day,
-    );
-    final finSemana = comienzoSemana.add(
-      const Duration(days: 6, hours: 23, minutes: 59),
-    );
+  State<EstadisticasPage> createState() => _EstadisticasPageState();
+}
 
+class _EstadisticasPageState extends State<EstadisticasPage> {
+  late DateTime _selectedWeekStart;
+  final DateTime _ahora = DateTime.now();
+
+  _EstadisticasPageState() {
+    _selectedWeekStart = _getWeekStart(_ahora);
+  }
+
+  DateTime _getWeekStart(DateTime date) {
+    final diff = date.weekday - 1;
+    return DateTime(date.year, date.month, date.day - diff);
+  }
+
+  DateTime get _weekEnd => _selectedWeekStart.add(const Duration(days: 6, hours: 23, minutes: 59));
+  
+  bool get _isCurrentWeek {
+    final currentWeekStart = _getWeekStart(_ahora);
+    return _selectedWeekStart.year == currentWeekStart.year &&
+        _selectedWeekStart.month == currentWeekStart.month &&
+        _selectedWeekStart.day == currentWeekStart.day;
+  }
+
+  void _goToPreviousWeek() {
+    setState(() {
+      _selectedWeekStart = _selectedWeekStart.subtract(const Duration(days: 7));
+    });
+  }
+
+  void _goToNextWeek() {
+    if (!_isCurrentWeek) {
+      setState(() {
+        _selectedWeekStart = _selectedWeekStart.add(const Duration(days: 7));
+      });
+    }
+  }
+
+  void _goToCurrentWeek() {
+    setState(() {
+      _selectedWeekStart = _getWeekStart(_ahora);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Análisis de Negocio')),
       body: StreamBuilder<QuerySnapshot>(
@@ -1753,8 +2038,8 @@ class EstadisticasPage extends StatelessWidget {
               for (var doc in ventasSnap.data!.docs) {
                 if (doc['fecha'] != null && doc['fecha'] is Timestamp) {
                   DateTime fecha = (doc['fecha'] as Timestamp).toDate();
-                  if (fecha.isAfter(comienzoSemana) &&
-                      fecha.isBefore(finSemana)) {
+                  if (fecha.isAfter(_selectedWeekStart) &&
+                      fecha.isBefore(_weekEnd)) {
                     final value = (doc['total'] as num?)?.toDouble() ?? 0;
                     ingresosSemana += value;
                   }
@@ -1765,8 +2050,8 @@ class EstadisticasPage extends StatelessWidget {
               for (var doc in gastosSnap.data!.docs) {
                 if (doc['fecha'] != null && doc['fecha'] is Timestamp) {
                   DateTime fecha = (doc['fecha'] as Timestamp).toDate();
-                  if (fecha.isAfter(comienzoSemana) &&
-                      fecha.isBefore(finSemana)) {
+                  if (fecha.isAfter(_selectedWeekStart) &&
+                      fecha.isBefore(_weekEnd)) {
                     final value = (doc['monto'] as num?)?.toDouble() ?? 0;
                     gastosSemana += value;
                   }
@@ -1790,12 +2075,7 @@ class EstadisticasPage extends StatelessWidget {
                     ),
 
                     const SizedBox(height: 30),
-                    _buildSectionTitle(context, 'RENDIMIENTO SEMANAL'),
-                    Text(
-                      '${DateFormat('d MMM').format(comienzoSemana)} - ${DateFormat('d MMM').format(finSemana)}',
-                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                    ),
-
+                    _buildWeekSelector(context),
                     const SizedBox(height: 15),
                     _buildStatRow(
                       context,
@@ -1830,6 +2110,88 @@ class EstadisticasPage extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildWeekSelector(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'RENDIMIENTO SEMANAL',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.withOpacity(0.2)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left, size: 28),
+                onPressed: _goToPreviousWeek,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
+              Expanded(
+                child: Column(
+                  children: [
+                    Text(
+                      'Semana: ${DateFormat('d MMM').format(_selectedWeekStart)} - ${DateFormat('d MMM').format(_weekEnd)}',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    if (_isCurrentWeek)
+                      Text(
+                        '(Semana actual)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.green.shade700,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.chevron_right,
+                  size: 28,
+                  color: _isCurrentWeek ? Colors.grey : null,
+                ),
+                onPressed: _isCurrentWeek ? null : _goToNextWeek,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Center(
+          child: TextButton.icon(
+            onPressed: _isCurrentWeek ? null : _goToCurrentWeek,
+            icon: const Icon(Icons.today, size: 18),
+            label: const Text('Esta Semana'),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
