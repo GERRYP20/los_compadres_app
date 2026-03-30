@@ -120,10 +120,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
             icon: Icon(Icons.add_shopping_cart),
             label: 'Ventas',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.money_off),
-            label: 'Gastos',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.money_off), label: 'Gastos'),
           BottomNavigationBarItem(
             icon: Icon(Icons.monetization_on),
             label: 'Finanzas',
@@ -136,32 +133,232 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
 
 class InicioPage extends StatelessWidget {
   const InicioPage({super.key});
+
   @override
   Widget build(BuildContext context) {
-    return Center(
+    // Definimos un esquema de color personalizado para las tarjetas para que resalten
+    final cardColorVentas = Colors.green.withOpacity(0.1);
+    final cardColorGastos = Colors.red.withOpacity(0.1);
+    final textOnCardVentas = Colors.green;
+    final textOnCardGastos = Colors.red;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.home_work,
-            size: 100,
-            color: Theme.of(context).colorScheme.primary,
+          // SECCIÓN SUPERIOR: TEXTO Y LOGO INTEGRADOS AL ESTILO CAR APP
+          Padding(
+            padding: const EdgeInsets.only(bottom: 30),
+            child: Row(
+              children: [
+                // Columna de texto (izquierda)
+                Expanded(
+                  flex: 2, // Toma más espacio
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Revisar Inventario',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'BIENVENIDO', // Texto principal muy grande y bold
+                        style: TextStyle(
+                          fontSize: 42,
+                          fontWeight: FontWeight.w900, // Equivale a Black
+                          color: Theme.of(context).colorScheme.onSurface,
+                          height: 1.0, // Ajuste de altura de línea
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        '¡Hola, Gerardo Pérez!', // Saludo personalizado
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Ladrillera Los Compadres',
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 20),
+                      // Botón/Contenedor del ID de estudiante
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 15,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: customPrimaryTeal.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          'ID: 186000',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Contenedor de la imagen (derecha) - integrado al diseño
+                Expanded(
+                  flex: 1, // Toma menos espacio
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Image.asset(
+                      'assets/logo.png', // Tu logo exacto
+                      width: 150, // Tamaño adecuado
+                      height: 150,
+                      fit: BoxFit.contain, // Muestra la imagen completa
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          SizedBox(height: 20),
+
+          const Divider(),
+          const SizedBox(height: 20),
+
+          // SECCIÓN DE PANALES DE RESUMEN (DASHBOARD)
           Text(
-            '¡Hola, Gerardo!',
+            'RESUMEN DEL DÍA',
             style: TextStyle(
-              fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onSurface,
+              color: Colors.grey,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 15),
+
+          // Fila de Paneles de estadísticas
+          Row(
+            children: [
+              // Panel 1: Inventario
+              Expanded(
+                child: _buildDashboardCard(
+                  context,
+                  title: 'Inventario Global',
+                  icon: Icons.inventory_2_outlined,
+                  dataValue: '5,000',
+                  unitValue: 'Blocks',
+                  cardColor: customPrimaryTeal.withOpacity(0.1),
+                  textColor: Theme.of(context).colorScheme.onSurface,
+                  subtitle: 'Última actualización: Hace 5m',
+                ),
+              ),
+              const SizedBox(width: 15), // Espacio entre paneles
+              // Panel 2: Ventas
+              Expanded(
+                child: _buildDashboardCard(
+                  context,
+                  title: 'Ventas de hoy',
+                  icon: Icons.add_shopping_cart,
+                  dataValue: '+ \$12,500', // Marcador de posición
+                  unitValue: 'Recaudado',
+                  cardColor: cardColorVentas,
+                  textColor: textOnCardVentas,
+                  subtitle: 'Venta más reciente: \$2,500',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+
+          // Paneles inferiores
+          _buildDashboardCard(
+            context,
+            title: 'Ver Stock Completo',
+            icon: Icons.warehouse_outlined,
+            dataValue: 'Ver Todo',
+            unitValue: 'Inventario',
+            cardColor: Theme.of(context).colorScheme.surfaceVariant,
+            textColor: Theme.of(context).colorScheme.onSurface,
+            subtitle: 'Ubicación: Ladrillera Principal - Bodega 1',
+          ),
+          const SizedBox(height: 15),
+          _buildDashboardCard(
+            context,
+            title: 'Ver Ventas Recientes',
+            icon: Icons.monetization_on_outlined,
+            dataValue: 'Ver Historial',
+            unitValue: 'Finanzas',
+            cardColor: Theme.of(context).colorScheme.surfaceVariant,
+            textColor: Theme.of(context).colorScheme.onSurface,
+            subtitle: 'Vea las últimas 10 ventas registradas',
+          ),
+        ],
+      ),
+    );
+  }
+
+  // WIDGET HELPER: Crea una tarjeta de Dashboard reutilizable
+  Widget _buildDashboardCard(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required String dataValue,
+    required String unitValue,
+    required Color cardColor,
+    required Color textColor,
+    required String subtitle,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: textColor.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                unitValue,
+                style: TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              Icon(icon, size: 16, color: Colors.grey),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            dataValue,
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: textColor,
             ),
           ),
           Text(
-            'Ladrillera Los Compadres',
+            title,
             style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              color: textColor,
+              fontWeight: FontWeight.normal,
+              fontSize: 14,
             ),
           ),
+          const SizedBox(height: 10),
+          Text(subtitle, style: TextStyle(color: Colors.grey, fontSize: 11)),
         ],
       ),
     );
@@ -453,7 +650,8 @@ class FinanzasPage extends StatefulWidget {
   State<FinanzasPage> createState() => _FinanzasPageState();
 }
 
-class _FinanzasPageState extends State<FinanzasPage> with SingleTickerProviderStateMixin {
+class _FinanzasPageState extends State<FinanzasPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -481,10 +679,12 @@ class _FinanzasPageState extends State<FinanzasPage> with SingleTickerProviderSt
             }
 
             double totalVentas = ventasSnapshot.data!.docs.fold(
-              0, (prev, doc) => prev + (doc['total'] as num).toDouble(),
+              0,
+              (prev, doc) => prev + (doc['total'] as num).toDouble(),
             );
             double totalGastos = gastosSnapshot.data!.docs.fold(
-              0, (prev, doc) => prev + (doc['monto'] as num).toDouble(),
+              0,
+              (prev, doc) => prev + (doc['monto'] as num).toDouble(),
             );
             double balanceNeto = totalVentas - totalGastos;
 
@@ -505,16 +705,30 @@ class _FinanzasPageState extends State<FinanzasPage> with SingleTickerProviderSt
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      _buildSmallStat(context, 'Ingresos', totalVentas, Colors.green, Icons.arrow_upward),
+                      _buildSmallStat(
+                        context,
+                        'Ingresos',
+                        totalVentas,
+                        Colors.green,
+                        Icons.arrow_upward,
+                      ),
                       const SizedBox(width: 15),
-                      _buildSmallStat(context, 'Egresos', totalGastos, Colors.red, Icons.arrow_downward),
+                      _buildSmallStat(
+                        context,
+                        'Egresos',
+                        totalGastos,
+                        Colors.red,
+                        Icons.arrow_downward,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 20),
                   TabBar(
                     controller: _tabController,
                     labelColor: Theme.of(context).colorScheme.primary,
-                    unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                    unselectedLabelColor: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant,
                     tabs: const [
                       Tab(text: 'Ventas'),
                       Tab(text: 'Gastos'),
@@ -544,7 +758,9 @@ class _FinanzasPageState extends State<FinanzasPage> with SingleTickerProviderSt
       return Center(
         child: Text(
           'No hay ventas registradas',
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -555,14 +771,20 @@ class _FinanzasPageState extends State<FinanzasPage> with SingleTickerProviderSt
         var v = ventas[index];
         String fecha = "S/F";
         if (v['fecha'] != null) {
-          fecha = DateFormat('dd/MM/yyyy').format((v['fecha'] as Timestamp).toDate());
+          fecha = DateFormat(
+            'dd/MM/yyyy',
+          ).format((v['fecha'] as Timestamp).toDate());
         }
 
         return ListTile(
           contentPadding: const EdgeInsets.symmetric(vertical: 5),
           leading: CircleAvatar(
             backgroundColor: Colors.green.withOpacity(0.1),
-            child: const Icon(Icons.add_shopping_cart, color: Colors.green, size: 20),
+            child: const Icon(
+              Icons.add_shopping_cart,
+              color: Colors.green,
+              size: 20,
+            ),
           ),
           title: Text(
             v['cliente'] ?? 'Sin nombre',
@@ -571,7 +793,11 @@ class _FinanzasPageState extends State<FinanzasPage> with SingleTickerProviderSt
           subtitle: Text('${v['cantidad']} piezas • $fecha'),
           trailing: Text(
             '\$${v['total']}',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.green,
+            ),
           ),
         );
       },
@@ -583,7 +809,9 @@ class _FinanzasPageState extends State<FinanzasPage> with SingleTickerProviderSt
       return Center(
         child: Text(
           'No hay gastos registrados',
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -594,7 +822,9 @@ class _FinanzasPageState extends State<FinanzasPage> with SingleTickerProviderSt
         var g = gastos[index];
         String fecha = "S/F";
         if (g['fecha'] != null) {
-          fecha = DateFormat('dd/MM/yyyy').format((g['fecha'] as Timestamp).toDate());
+          fecha = DateFormat(
+            'dd/MM/yyyy',
+          ).format((g['fecha'] as Timestamp).toDate());
         }
 
         return ListTile(
@@ -610,7 +840,11 @@ class _FinanzasPageState extends State<FinanzasPage> with SingleTickerProviderSt
           subtitle: Text(fecha),
           trailing: Text(
             '-\$${g['monto'].toStringAsFixed(2)}',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.red,
+            ),
           ),
         );
       },
@@ -655,7 +889,13 @@ class _FinanzasPageState extends State<FinanzasPage> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildSmallStat(BuildContext context, String label, double monto, Color color, IconData icon) {
+  Widget _buildSmallStat(
+    BuildContext context,
+    String label,
+    double monto,
+    Color color,
+    IconData icon,
+  ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(15),
@@ -671,7 +911,14 @@ class _FinanzasPageState extends State<FinanzasPage> with SingleTickerProviderSt
               children: [
                 Icon(icon, size: 16, color: color),
                 const SizedBox(width: 5),
-                Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 5),
@@ -802,7 +1049,11 @@ class _GastosPageState extends State<GastosPage> {
         children: [
           Text(
             'REGISTRAR GASTO',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
           const SizedBox(height: 25),
           TextField(
@@ -811,7 +1062,10 @@ class _GastosPageState extends State<GastosPage> {
             decoration: InputDecoration(
               labelText: 'Monto (\$)',
               border: const OutlineInputBorder(),
-              prefixIcon: Icon(Icons.remove_circle, color: Theme.of(context).colorScheme.error),
+              prefixIcon: Icon(
+                Icons.remove_circle,
+                color: Theme.of(context).colorScheme.error,
+              ),
             ),
           ),
           const SizedBox(height: 15),
@@ -835,17 +1089,22 @@ class _GastosPageState extends State<GastosPage> {
                   ? null
                   : () async {
                       if (!_esFormularioValido) return;
-                      double monto = double.tryParse(_montoController.text) ?? 0;
+                      double monto =
+                          double.tryParse(_montoController.text) ?? 0;
                       if (monto <= 0) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('❌ El monto debe ser mayor a 0')),
+                          const SnackBar(
+                            content: Text('❌ El monto debe ser mayor a 0'),
+                          ),
                         );
                         return;
                       }
                       String desc = _descController.text.trim();
                       if (desc.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('❌ Ingrese la descripción del gasto')),
+                          const SnackBar(
+                            content: Text('❌ Ingrese la descripción del gasto'),
+                          ),
                         );
                         return;
                       }
