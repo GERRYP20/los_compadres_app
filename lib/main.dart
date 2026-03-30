@@ -131,161 +131,201 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
   }
 }
 
-class InicioPage extends StatelessWidget {
+class InicioPage extends StatefulWidget {
   const InicioPage({super.key});
+  @override
+  State<InicioPage> createState() => _InicioPageState();
+}
 
+class _InicioPageState extends State<InicioPage> {
   @override
   Widget build(BuildContext context) {
     final String? uid = FirebaseAuth.instance.currentUser?.uid;
 
-    final cardColorVentas = Colors.green.withOpacity(0.1);
-    final textOnCardVentas = Colors.green;
+    final DateTime ahora = DateTime.now();
+    final DateTime comienzoHoy = DateTime(ahora.year, ahora.month, ahora.day);
+    final DateTime finHoy = DateTime(ahora.year, ahora.month, ahora.day, 23, 59, 59);
 
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance.collection('usuarios').doc(uid).get(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
+      builder: (context, userSnapshot) {
         String nombreUsuario = "Usuario";
-        if (snapshot.hasData && snapshot.data!.exists) {
-          var data = snapshot.data!.data() as Map<String, dynamic>;
+        if (userSnapshot.hasData && userSnapshot.data!.exists) {
+          var data = userSnapshot.data!.data() as Map<String, dynamic>;
           nombreUsuario = data['nombre'] ?? "Usuario";
         }
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(bottom: 30),
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Revisar Inventario',
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+        return StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('inventario')
+              .doc('global')
+              .snapshots(),
+          builder: (context, stockSnapshot) {
+            int stockActual = 0;
+            if (stockSnapshot.hasData && stockSnapshot.data!.exists) {
+              stockActual = (stockSnapshot.data!['piezas_disponibles'] as num?)?.toInt() ?? 0;
+            }
+
+            return StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('ventas')
+                  .where('fecha', isGreaterThanOrEqualTo: comienzoHoy)
+                  .where('fecha', isLessThanOrEqualTo: finHoy)
+                  .snapshots(),
+              builder: (context, ventasSnapshot) {
+                double ventasHoy = 0;
+                int numVentas = 0;
+                if (ventasSnapshot.hasData) {
+                  numVentas = ventasSnapshot.data!.docs.length;
+                  ventasHoy = ventasSnapshot.data!.docs.fold<double>(0.0, (prev, doc) {
+                    final value = (doc['total'] as num?)?.toDouble() ?? 0;
+                    return prev + value;
+                  });
+                }
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 30),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Revisar Inventario',
+                                    style: TextStyle(
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    'BIENVENIDO',
+                                    style: TextStyle(
+                                      fontSize: 42,
+                                      fontWeight: FontWeight.w900,
+                                      color: Theme.of(context).colorScheme.onSurface,
+                                      height: 1.0,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    '¡Hola, $nombreUsuario!',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    'Blockera Los Compadres',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'BIENVENIDO',
-                            style: TextStyle(
-                              fontSize: 42,
-                              fontWeight: FontWeight.w900,
-                              color: Theme.of(context).colorScheme.onSurface,
-                              height: 1.0,
+                            Expanded(
+                              flex: 1,
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Image.asset(
+                                  'assets/logo.png',
+                                  width: 150,
+                                  height: 150,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            '¡Hola, $nombreUsuario!', 
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          const Text(
-                            'Blockera Los Compadres',
-                            style: TextStyle(fontSize: 16, color: Colors.grey),
-                          ),
-                          const SizedBox(height: 20),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      flex: 1,
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: Image.asset(
-                          'assets/logo.png',
-                          width: 150,
-                          height: 150,
-                          fit: BoxFit.contain,
+                          ],
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const Divider(),
-              const SizedBox(height: 20),
-
-              const Text(
-                'RESUMEN DEL DÍA',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 15),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildDashboardCard(
-                      context,
-                      title: 'Inventario Global',
-                      icon: Icons.inventory_2_outlined,
-                      dataValue: '5,000',
-                      unitValue: 'Blocks',
-                      cardColor: customPrimaryTeal.withOpacity(0.1),
-                      textColor: Theme.of(context).colorScheme.onSurface,
-                      subtitle: 'Stock en tiempo real',
-                    ),
+                      const Divider(),
+                      const SizedBox(height: 20),
+                      Text(
+                        'RESUMEN DEL DÍA',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildDashboardCard(
+                              context,
+                              title: 'Inventario Global',
+                              icon: Icons.inventory_2_outlined,
+                              dataValue: '$stockActual',
+                              unitValue: 'Blocks',
+                              cardColor: customPrimaryTeal.withOpacity(0.1),
+                              textColor: Theme.of(context).colorScheme.onSurface,
+                              subtitle: 'Stock en tiempo real',
+                            ),
+                          ),
+                          const SizedBox(width: 15),
+                          Expanded(
+                            child: _buildDashboardCard(
+                              context,
+                              title: 'Ventas de hoy',
+                              icon: Icons.add_shopping_cart,
+                              dataValue: '+\$${ventasHoy.toStringAsFixed(0)}',
+                              unitValue: numVentas > 0 ? '$numVentas venta${numVentas > 1 ? 's' : ''}' : 'Sin ventas',
+                              cardColor: Colors.green.withOpacity(0.1),
+                              textColor: Colors.green,
+                              subtitle: 'Total recaudado hoy',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 15),
+                      InkWell(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const EstadisticasPage(),
+                          ),
+                        ),
+                        child: _buildDashboardCard(
+                          context,
+                          title: 'Estadísticas y Capital',
+                          icon: Icons.bar_chart_rounded,
+                          dataValue: 'Ver Todo',
+                          unitValue: 'Finanzas',
+                          cardColor: Theme.of(context).colorScheme.surfaceVariant,
+                          textColor: Theme.of(context).colorScheme.onSurface,
+                          subtitle: 'Análisis semanal y capital total',
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+                      _buildDashboardCard(
+                        context,
+                        title: 'Ver Ventas Recientes',
+                        icon: Icons.monetization_on_outlined,
+                        dataValue: 'Ver Historial',
+                        unitValue: 'Finanzas',
+                        cardColor: Theme.of(context).colorScheme.surfaceVariant,
+                        textColor: Theme.of(context).colorScheme.onSurface,
+                        subtitle: 'Últimas 10 transacciones',
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: _buildDashboardCard(
-                      context,
-                      title: 'Ventas de hoy',
-                      icon: Icons.add_shopping_cart,
-                      dataValue: '+ \$12,500',
-                      unitValue: 'Recaudado',
-                      cardColor: cardColorVentas,
-                      textColor: textOnCardVentas,
-                      subtitle: 'Cierre parcial',
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 15),
-
-              _buildDashboardCard(
-                context,
-                title: 'Ver Stock Completo',
-                icon: Icons.warehouse_outlined,
-                dataValue: 'Ver Todo',
-                unitValue: 'Inventario',
-                cardColor: Theme.of(context).colorScheme.surfaceVariant,
-                textColor: Theme.of(context).colorScheme.onSurface,
-                subtitle: 'Ubicación: Bodega Principal',
-              ),
-              const SizedBox(height: 15),
-              _buildDashboardCard(
-                context,
-                title: 'Ver Ventas Recientes',
-                icon: Icons.monetization_on_outlined,
-                dataValue: 'Ver Historial',
-                unitValue: 'Finanzas',
-                cardColor: Theme.of(context).colorScheme.surfaceVariant,
-                textColor: Theme.of(context).colorScheme.onSurface,
-                subtitle: 'Últimas 10 transacciones',
-              ),
-            ],
-          ),
+                );
+              },
+            );
+          },
         );
       },
     );
@@ -316,7 +356,11 @@ class InicioPage extends StatelessWidget {
             children: [
               Text(
                 unitValue,
-                style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 12),
+                style: TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
               ),
               Icon(icon, size: 16, color: Colors.grey),
             ],
@@ -324,11 +368,19 @@ class InicioPage extends StatelessWidget {
           const SizedBox(height: 5),
           Text(
             dataValue,
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
           ),
           Text(
             title,
-            style: TextStyle(color: textColor, fontWeight: FontWeight.normal, fontSize: 14),
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.normal,
+              fontSize: 14,
+            ),
           ),
           const SizedBox(height: 10),
           Text(subtitle, style: TextStyle(color: Colors.grey, fontSize: 11)),
@@ -372,25 +424,43 @@ class StockPage extends StatelessWidget {
                 int cant = int.tryParse(cantidadController.text) ?? 0;
                 if (cant <= 0) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('❌ Ingrese una cantidad válida mayor a 0')),
+                    const SnackBar(
+                      content: Text('❌ Ingrese una cantidad válida mayor a 0'),
+                    ),
                   );
                   return;
                 }
                 if (cant > 999999) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('❌ La cantidad máxima es 999,999')),
+                    const SnackBar(
+                      content: Text('❌ La cantidad máxima es 999,999'),
+                    ),
                   );
                   return;
                 }
                 try {
+                  String nombreUsuario = 'Usuario';
+                  try {
+                    var userDoc = await FirebaseFirestore.instance
+                        .collection('usuarios')
+                        .doc(FirebaseAuth.instance.currentUser?.uid)
+                        .get();
+                    if (userDoc.exists) {
+                      nombreUsuario = userDoc['nombre'] ?? 'Usuario';
+                    }
+                  } catch (_) {
+                    // Keep default 'Usuario'
+                  }
+
                   await FirebaseFirestore.instance.runTransaction((tx) async {
                     DocumentReference stockRef = FirebaseFirestore.instance
                         .collection('inventario')
                         .doc('global');
 
                     DocumentSnapshot snap = await tx.get(stockRef);
-                    
-                    int stockActual = (snap['piezas_disponibles'] as num?)?.toInt() ?? 0;
+
+                    int stockActual =
+                        (snap['piezas_disponibles'] as num?)?.toInt() ?? 0;
                     tx.update(stockRef, {
                       'piezas_disponibles': stockActual + cant,
                     });
@@ -403,9 +473,7 @@ class StockPage extends StatelessWidget {
                         'cantidad': cant,
                         'fecha': FieldValue.serverTimestamp(),
                         'id_usuario': FirebaseAuth.instance.currentUser?.uid,
-                        'usuario_nombre':
-                            FirebaseAuth.instance.currentUser?.email ??
-                            'Gerardo',
+                        'usuario_nombre': nombreUsuario,
                       },
                     );
                   });
@@ -451,9 +519,18 @@ class StockPage extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.inventory_2_outlined, size: 50, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    Icon(
+                      Icons.inventory_2_outlined,
+                      size: 50,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                     const SizedBox(height: 10),
-                    Text('Sin datos de inventario', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                    Text(
+                      'Sin datos de inventario',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               );
@@ -678,26 +755,36 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
                       int cant = int.tryParse(_cantidadController.text) ?? 0;
                       if (cant <= 0) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('❌ La cantidad debe ser mayor a 0')),
+                          const SnackBar(
+                            content: Text('❌ La cantidad debe ser mayor a 0'),
+                          ),
                         );
                         return;
                       }
                       if (cant > 999999) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('❌ La cantidad máxima es 999,999')),
+                          const SnackBar(
+                            content: Text('❌ La cantidad máxima es 999,999'),
+                          ),
                         );
                         return;
                       }
                       String cliente = _clienteController.text.trim();
                       if (cliente.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('❌ Ingrese el nombre del cliente')),
+                          const SnackBar(
+                            content: Text('❌ Ingrese el nombre del cliente'),
+                          ),
                         );
                         return;
                       }
                       if (cliente.length > 100) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('❌ El nombre del cliente es muy largo (máx. 100 caracteres)')),
+                          const SnackBar(
+                            content: Text(
+                              '❌ El nombre del cliente es muy largo (máx. 100 caracteres)',
+                            ),
+                          ),
                         );
                         return;
                       }
@@ -711,12 +798,14 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
                               .collection('inventario')
                               .doc('global');
                           DocumentSnapshot snap = await tx.get(stockRef);
-                          
-                          int stockActual = (snap['piezas_disponibles'] as num?)?.toInt() ?? 0;
+
+                          int stockActual =
+                              (snap['piezas_disponibles'] as num?)?.toInt() ??
+                              0;
                           if (stockActual < cant) {
                             throw Exception('STOCK_INSUFFICIENT');
                           }
-                          
+
                           tx.update(stockRef, {
                             'piezas_disponibles': stockActual - cant,
                           });
@@ -743,7 +832,8 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
                       } catch (e) {
                         if (!mounted) return;
                         setState(() => _cargando = false);
-                        String mensaje = e.toString().contains('STOCK_INSUFFICIENT')
+                        String mensaje =
+                            e.toString().contains('STOCK_INSUFFICIENT')
                             ? '❌ Stock insuficiente. No hay suficientes blocks disponibles.'
                             : '❌ Error al registrar la venta';
                         ScaffoldMessenger.of(
@@ -786,30 +876,38 @@ class _FinanzasPageState extends State<FinanzasPage>
 
   @override
   Widget build(BuildContext context) {
+    final DateTime ahora = DateTime.now();
+    final DateTime comienzoHoy = DateTime(ahora.year, ahora.month, ahora.day);
+    final DateTime finHoy = DateTime(ahora.year, ahora.month, ahora.day, 23, 59, 59);
+
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('ventas').snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('ventas')
+          .where('fecha', isGreaterThanOrEqualTo: comienzoHoy)
+          .where('fecha', isLessThanOrEqualTo: finHoy)
+          .orderBy('fecha', descending: true)
+          .snapshots(),
       builder: (context, ventasSnapshot) {
         return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance.collection('gastos').snapshots(),
+          stream: FirebaseFirestore.instance
+              .collection('gastos')
+              .where('fecha', isGreaterThanOrEqualTo: comienzoHoy)
+              .where('fecha', isLessThanOrEqualTo: finHoy)
+              .orderBy('fecha', descending: true)
+              .snapshots(),
           builder: (context, gastosSnapshot) {
             if (!ventasSnapshot.hasData || !gastosSnapshot.hasData) {
               return const Center(child: CircularProgressIndicator());
             }
 
-            double totalVentas = ventasSnapshot.data!.docs.fold<double>(
-              0.0,
-              (prev, doc) {
-                final value = (doc['total'] as num?)?.toDouble();
-                return prev + (value ?? 0.0);
-              },
-            );
-            double totalGastos = gastosSnapshot.data!.docs.fold<double>(
-              0.0,
-              (prev, doc) {
-                final value = (doc['monto'] as num?)?.toDouble();
-                return prev + (value ?? 0.0);
-              },
-            );
+            double totalVentas = ventasSnapshot.data!.docs.fold<double>(0.0, (prev, doc) {
+              final value = (doc['total'] as num?)?.toDouble();
+              return prev + (value ?? 0.0);
+            });
+            double totalGastos = gastosSnapshot.data!.docs.fold<double>(0.0, (prev, doc) {
+              final value = (doc['monto'] as num?)?.toDouble();
+              return prev + (value ?? 0.0);
+            });
             double balanceNeto = totalVentas - totalGastos;
 
             return Padding(
@@ -817,42 +915,41 @@ class _FinanzasPageState extends State<FinanzasPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'RESUMEN FINANCIERO',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'RESUMEN FINANCIERO',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      Text(
+                        DateFormat('d MMMM').format(ahora).toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 15),
                   _buildCardBalance(context, balanceNeto),
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      _buildSmallStat(
-                        context,
-                        'Ingresos',
-                        totalVentas,
-                        Colors.green,
-                        Icons.arrow_upward,
-                      ),
+                      _buildSmallStat(context, 'Ingresos', totalVentas, Colors.green, Icons.arrow_upward),
                       const SizedBox(width: 15),
-                      _buildSmallStat(
-                        context,
-                        'Egresos',
-                        totalGastos,
-                        Colors.red,
-                        Icons.arrow_downward,
-                      ),
+                      _buildSmallStat(context, 'Egresos', totalGastos, Colors.red, Icons.arrow_downward),
                     ],
                   ),
                   const SizedBox(height: 20),
                   TabBar(
                     controller: _tabController,
                     labelColor: Theme.of(context).colorScheme.primary,
-                    unselectedLabelColor: Theme.of(
-                      context,
-                    ).colorScheme.onSurfaceVariant,
+                    unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
                     tabs: const [
                       Tab(text: 'Ventas'),
                       Tab(text: 'Gastos'),
@@ -877,15 +974,12 @@ class _FinanzasPageState extends State<FinanzasPage>
     );
   }
 
+  // --- MÉTODOS HELPER (Se mantienen con tu diseño) ---
+
   Widget _buildVentasList(List<QueryDocumentSnapshot> ventas) {
     if (ventas.isEmpty) {
       return Center(
-        child: Text(
-          'No hay ventas registradas',
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
+        child: Text('No hay ventas hoy', style: TextStyle(color: Colors.grey)),
       );
     }
 
@@ -893,11 +987,10 @@ class _FinanzasPageState extends State<FinanzasPage>
       itemCount: ventas.length,
       itemBuilder: (context, index) {
         var v = ventas[index];
-        String fecha = "S/F";
-        if (v['fecha'] != null && v['fecha'] is Timestamp) {
-          fecha = DateFormat(
-            'dd/MM/yyyy',
-          ).format((v['fecha'] as Timestamp).toDate());
+        // Cambiamos a formato de hora porque la fecha ya sabemos que es hoy
+        String hora = "S/F";
+        if (v['fecha'] != null) {
+          hora = DateFormat('HH:mm').format((v['fecha'] as Timestamp).toDate());
         }
 
         return ListTile(
@@ -914,7 +1007,7 @@ class _FinanzasPageState extends State<FinanzasPage>
             v['cliente'] ?? 'Sin nombre',
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          subtitle: Text('${v['cantidad']} piezas • $fecha'),
+          subtitle: Text('${v['cantidad']} piezas • $hora'),
           trailing: Text(
             '\$${v['total']}',
             style: const TextStyle(
@@ -931,12 +1024,7 @@ class _FinanzasPageState extends State<FinanzasPage>
   Widget _buildGastosList(List<QueryDocumentSnapshot> gastos) {
     if (gastos.isEmpty) {
       return Center(
-        child: Text(
-          'No hay gastos registrados',
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
+        child: Text('No hay gastos hoy', style: TextStyle(color: Colors.grey)),
       );
     }
 
@@ -944,11 +1032,9 @@ class _FinanzasPageState extends State<FinanzasPage>
       itemCount: gastos.length,
       itemBuilder: (context, index) {
         var g = gastos[index];
-        String fecha = "S/F";
-        if (g['fecha'] != null && g['fecha'] is Timestamp) {
-          fecha = DateFormat(
-            'dd/MM/yyyy',
-          ).format((g['fecha'] as Timestamp).toDate());
+        String hora = "S/F";
+        if (g['fecha'] != null) {
+          hora = DateFormat('HH:mm').format((g['fecha'] as Timestamp).toDate());
         }
 
         return ListTile(
@@ -961,7 +1047,7 @@ class _FinanzasPageState extends State<FinanzasPage>
             g['descripcion'] ?? 'Sin descripción',
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          subtitle: Text(fecha),
+          subtitle: Text('Hora: $hora'),
           trailing: Text(
             '-\$${g['monto'].toStringAsFixed(2)}',
             style: const TextStyle(
@@ -980,11 +1066,11 @@ class _FinanzasPageState extends State<FinanzasPage>
       width: double.infinity,
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary,
+        color: customPrimaryTeal, // Usando tu color Teal
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+            color: customPrimaryTeal.withOpacity(0.3),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -994,16 +1080,16 @@ class _FinanzasPageState extends State<FinanzasPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'BALANCE NETO',
+            'BALANCE NETO DE HOY',
             style: TextStyle(
-              color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7),
+              color: Colors.white.withOpacity(0.7),
               fontWeight: FontWeight.w500,
             ),
           ),
           Text(
             '\$${monto.toStringAsFixed(2)}',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onPrimary,
+            style: const TextStyle(
+              color: Colors.white,
               fontSize: 35,
               fontWeight: FontWeight.bold,
             ),
@@ -1100,8 +1186,11 @@ class _LoginPageState extends State<LoginPage> {
                     width: 200,
                     height: 200,
                     fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const Icon(Icons.business, size: 100, color: Colors.grey),
+                    errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.business,
+                      size: 100,
+                      color: Colors.grey,
+                    ),
                   ),
                 ),
 
@@ -1129,10 +1218,12 @@ class _LoginPageState extends State<LoginPage> {
                   decoration: InputDecoration(
                     labelText: 'Usuario / Alias',
                     prefixIcon: const Icon(Icons.person_outline),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 20),
 
                 // CAMPO DE CONTRASEÑA CON BOTÓN DE VISIBILIDAD
@@ -1154,7 +1245,9 @@ class _LoginPageState extends State<LoginPage> {
                         });
                       },
                     ),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
                   ),
                 ),
 
@@ -1168,7 +1261,9 @@ class _LoginPageState extends State<LoginPage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: customPrimaryTeal,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
                     ),
                     onPressed: () async {
                       String rawInput = _e.text.trim();
@@ -1176,13 +1271,15 @@ class _LoginPageState extends State<LoginPage> {
 
                       if (rawInput.isEmpty || password.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Ingresa tus credenciales')),
+                          const SnackBar(
+                            content: Text('Ingresa tus credenciales'),
+                          ),
                         );
                         return;
                       }
 
-                      String correoFinal = rawInput.contains('@') 
-                          ? rawInput 
+                      String correoFinal = rawInput.contains('@')
+                          ? rawInput
                           : '$rawInput@compadres.com';
 
                       try {
@@ -1213,7 +1310,8 @@ class _LoginPageState extends State<LoginPage> {
                             mensaje = 'Error de conexión. Verifica tu internet';
                             break;
                           default:
-                            mensaje = 'Error de acceso. Verifica tus credenciales';
+                            mensaje =
+                                'Error de acceso. Verifica tus credenciales';
                         }
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -1231,15 +1329,21 @@ class _LoginPageState extends State<LoginPage> {
                         );
                       }
                     },
-                    child: const Text('ENTRAR AL SISTEMA', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: const Text(
+                      'ENTRAR AL SISTEMA',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 20),
-                
+
                 IconButton(
                   onPressed: widget.onThemeToggle,
-                  icon: const Icon(Icons.brightness_6_outlined, color: Colors.grey),
+                  icon: const Icon(
+                    Icons.brightness_6_outlined,
+                    color: Colors.grey,
+                  ),
                 ),
               ],
             ),
@@ -1340,26 +1444,36 @@ class _GastosPageState extends State<GastosPage> {
                           double.tryParse(_montoController.text) ?? 0;
                       if (monto <= 0) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('❌ El monto debe ser mayor a 0')),
+                          const SnackBar(
+                            content: Text('❌ El monto debe ser mayor a 0'),
+                          ),
                         );
                         return;
                       }
                       if (monto > 9999999) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('❌ El monto máximo es 9,999,999')),
+                          const SnackBar(
+                            content: Text('❌ El monto máximo es 9,999,999'),
+                          ),
                         );
                         return;
                       }
                       String desc = _descController.text.trim();
                       if (desc.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('❌ Ingrese la descripción del gasto')),
+                          const SnackBar(
+                            content: Text('❌ Ingrese la descripción del gasto'),
+                          ),
                         );
                         return;
                       }
                       if (desc.length > 200) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('❌ La descripción es muy larga (máx. 200 caracteres)')),
+                          const SnackBar(
+                            content: Text(
+                              '❌ La descripción es muy larga (máx. 200 caracteres)',
+                            ),
+                          ),
                         );
                         return;
                       }
@@ -1395,6 +1509,248 @@ class _GastosPageState extends State<GastosPage> {
               child: _cargando
                   ? const CircularProgressIndicator(color: Colors.white)
                   : const Text('GUARDAR GASTO'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class EstadisticasPage extends StatelessWidget {
+  const EstadisticasPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // LÓGICA DE SEMANA ACTUAL (Lunes a Domingo)
+    final ahora = DateTime.now();
+    final inicioSemana = ahora.subtract(Duration(days: ahora.weekday - 1));
+    final comienzoSemana = DateTime(
+      inicioSemana.year,
+      inicioSemana.month,
+      inicioSemana.day,
+    );
+    final finSemana = comienzoSemana.add(
+      const Duration(days: 6, hours: 23, minutes: 59),
+    );
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Análisis de Negocio')),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('ventas').snapshots(),
+        builder: (context, ventasSnap) {
+          return StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance.collection('gastos').snapshots(),
+            builder: (context, gastosSnap) {
+              if (!ventasSnap.hasData || !gastosSnap.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              // --- CÁLCULO DE CAPITAL TOTAL (Toda la historia) ---
+              double ingresosHistoricos = ventasSnap.data!.docs.fold(
+                0,
+                (p, d) => p + (d['total'] ?? 0),
+              );
+              double gastosHistoricos = gastosSnap.data!.docs.fold(
+                0,
+                (p, d) => p + (d['monto'] ?? 0),
+              );
+              double capitalTotal = ingresosHistoricos - gastosHistoricos;
+
+              // --- CÁLCULO SEMANAL ---
+              double ingresosSemana = 0;
+              for (var doc in ventasSnap.data!.docs) {
+                if (doc['fecha'] != null && doc['fecha'] is Timestamp) {
+                  DateTime fecha = (doc['fecha'] as Timestamp).toDate();
+                  if (fecha.isAfter(comienzoSemana) &&
+                      fecha.isBefore(finSemana)) {
+                    final value = (doc['total'] as num?)?.toDouble() ?? 0;
+                    ingresosSemana += value;
+                  }
+                }
+              }
+
+              double gastosSemana = 0;
+              for (var doc in gastosSnap.data!.docs) {
+                if (doc['fecha'] != null && doc['fecha'] is Timestamp) {
+                  DateTime fecha = (doc['fecha'] as Timestamp).toDate();
+                  if (fecha.isAfter(comienzoSemana) &&
+                      fecha.isBefore(finSemana)) {
+                    final value = (doc['monto'] as num?)?.toDouble() ?? 0;
+                    gastosSemana += value;
+                  }
+                }
+              }
+
+              double totalSemanal = ingresosSemana - gastosSemana;
+
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionTitle(context, 'BALANCE GLOBAL'),
+                    const SizedBox(height: 15),
+                    _buildMainCard(
+                      context,
+                      'Capital Total Actual',
+                      capitalTotal,
+                      Icons.account_balance_wallet,
+                    ),
+
+                    const SizedBox(height: 30),
+                    _buildSectionTitle(context, 'RENDIMIENTO SEMANAL'),
+                    Text(
+                      '${DateFormat('d MMM').format(comienzoSemana)} - ${DateFormat('d MMM').format(finSemana)}',
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    ),
+
+                    const SizedBox(height: 15),
+                    _buildStatRow(
+                      context,
+                      'Ingresos Semanales',
+                      ingresosSemana,
+                      Colors.green,
+                      Icons.trending_up,
+                    ),
+                    const SizedBox(height: 10),
+                    _buildStatRow(
+                      context,
+                      'Gastos Semanales',
+                      gastosSemana,
+                      Colors.red,
+                      Icons.trending_down,
+                    ),
+                    const SizedBox(height: 10),
+                    _buildStatRow(
+                      context,
+                      'Total Semanal',
+                      totalSemanal,
+                      totalSemanal >= 0 ? Colors.green : Colors.red,
+                      Icons.pie_chart_outline,
+                    ),
+
+                    const SizedBox(height: 30),
+                    _buildInfoCard(context),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  // --- WIDGETS DE APOYO (UI) ---
+
+  Widget _buildSectionTitle(BuildContext context, String title) {
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 1.5,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+
+  Widget _buildMainCard(
+    BuildContext context,
+    String label,
+    double monto,
+    IconData icon,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(30),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [customPrimaryTeal, customPrimaryTeal.withOpacity(0.7)],
+        ),
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: customPrimaryTeal.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: Colors.white, size: 40),
+          const SizedBox(height: 15),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white70, fontSize: 16),
+          ),
+          Text(
+            '\$${monto.toStringAsFixed(2)}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 42,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatRow(
+    BuildContext context,
+    String label,
+    double monto,
+    Color color,
+    IconData icon,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: color.withOpacity(0.1)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color),
+              const SizedBox(width: 15),
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+            ],
+          ),
+          Text(
+            '\$${monto.toStringAsFixed(2)}',
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.blue.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.info_outline, color: Colors.blue, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Estas estadísticas se calculan en tiempo real basándose en todos los registros de la base de datos.',
+              style: TextStyle(fontSize: 12, color: Colors.blueGrey),
             ),
           ),
         ],
