@@ -144,7 +144,14 @@ class _InicioPageState extends State<InicioPage> {
 
     final DateTime ahora = DateTime.now();
     final DateTime comienzoHoy = DateTime(ahora.year, ahora.month, ahora.day);
-    final DateTime finHoy = DateTime(ahora.year, ahora.month, ahora.day, 23, 59, 59);
+    final DateTime finHoy = DateTime(
+      ahora.year,
+      ahora.month,
+      ahora.day,
+      23,
+      59,
+      59,
+    );
 
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance.collection('usuarios').doc(uid).get(),
@@ -163,7 +170,10 @@ class _InicioPageState extends State<InicioPage> {
           builder: (context, stockSnapshot) {
             int stockActual = 0;
             if (stockSnapshot.hasData && stockSnapshot.data!.exists) {
-              stockActual = (stockSnapshot.data!['piezas_disponibles'] as num?)?.toInt() ?? 0;
+              stockActual =
+                  (stockSnapshot.data!['piezas_disponibles'] as num?)
+                      ?.toInt() ??
+                  0;
             }
 
             return StreamBuilder<QuerySnapshot>(
@@ -176,15 +186,23 @@ class _InicioPageState extends State<InicioPage> {
                 double ventasHoy = 0;
                 int numVentas = 0;
                 if (ventasSnapshot.hasData) {
-                  numVentas = ventasSnapshot.data!.docs.length;
-                  ventasHoy = ventasSnapshot.data!.docs.fold<double>(0.0, (prev, doc) {
+                  final docs = ventasSnapshot.data!.docs.where((doc) {
+                    final status = (doc['status'] as String?) ?? 'paid';
+                    return status != 'pending';
+                  }).toList();
+                  
+                  numVentas = docs.length;
+                  ventasHoy = docs.fold<double>(0.0, (prev, doc) {
                     final value = (doc['total'] as num?)?.toDouble() ?? 0;
                     return prev + value;
                   });
                 }
 
                 return SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 30,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -200,7 +218,9 @@ class _InicioPageState extends State<InicioPage> {
                                   Text(
                                     'Revisar Inventario',
                                     style: TextStyle(
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -211,7 +231,9 @@ class _InicioPageState extends State<InicioPage> {
                                     style: TextStyle(
                                       fontSize: 42,
                                       fontWeight: FontWeight.w900,
-                                      color: Theme.of(context).colorScheme.onSurface,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
                                       height: 1.0,
                                     ),
                                   ),
@@ -220,7 +242,9 @@ class _InicioPageState extends State<InicioPage> {
                                     '¡Hola, $nombreUsuario!',
                                     style: TextStyle(
                                       fontSize: 18,
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                   const SizedBox(height: 10),
@@ -228,7 +252,9 @@ class _InicioPageState extends State<InicioPage> {
                                     'Blockera Los Compadres',
                                     style: TextStyle(
                                       fontSize: 16,
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                   const SizedBox(height: 20),
@@ -271,7 +297,9 @@ class _InicioPageState extends State<InicioPage> {
                               dataValue: '$stockActual',
                               unitValue: 'Blocks',
                               cardColor: customPrimaryTeal.withOpacity(0.1),
-                              textColor: Theme.of(context).colorScheme.onSurface,
+                              textColor: Theme.of(
+                                context,
+                              ).colorScheme.onSurface,
                               subtitle: 'Stock en tiempo real',
                             ),
                           ),
@@ -282,7 +310,9 @@ class _InicioPageState extends State<InicioPage> {
                               title: 'Ventas de hoy',
                               icon: Icons.add_shopping_cart,
                               dataValue: '+\$${ventasHoy.toStringAsFixed(0)}',
-                              unitValue: numVentas > 0 ? '$numVentas venta${numVentas > 1 ? 's' : ''}' : 'Sin ventas',
+                              unitValue: numVentas > 0
+                                  ? '$numVentas venta${numVentas > 1 ? 's' : ''}'
+                                  : 'Sin ventas',
                               cardColor: Colors.green.withOpacity(0.1),
                               textColor: Colors.green,
                               subtitle: 'Total recaudado hoy',
@@ -304,7 +334,9 @@ class _InicioPageState extends State<InicioPage> {
                           icon: Icons.bar_chart_rounded,
                           dataValue: 'Ver Todo',
                           unitValue: 'Finanzas',
-                          cardColor: Theme.of(context).colorScheme.surfaceVariant,
+                          cardColor: Theme.of(
+                            context,
+                          ).colorScheme.surfaceVariant,
                           textColor: Theme.of(context).colorScheme.onSurface,
                           subtitle: 'Análisis semanal y capital total',
                         ),
@@ -671,33 +703,37 @@ class RegistrarVentaPage extends StatefulWidget {
   State<RegistrarVentaPage> createState() => _RegistrarVentaPageState();
 }
 
-class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
+class _RegistrarVentaPageState extends State<RegistrarVentaPage>
+    with SingleTickerProviderStateMixin {
   final _clienteController = TextEditingController();
   final _cantidadController = TextEditingController();
   double _precio = 6.0;
   bool _cargando = false;
   String _status = 'paid';
-
-  bool get _esFormularioValido {
-    final cantidad = int.tryParse(_cantidadController.text) ?? 0;
-    final cliente = _clienteController.text.trim();
-    return cantidad > 0 && cliente.isNotEmpty;
-  }
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _clienteController.addListener(_onFormChanged);
     _cantidadController.addListener(_onFormChanged);
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _clienteController.removeListener(_onFormChanged);
     _cantidadController.removeListener(_onFormChanged);
     _clienteController.dispose();
     _cantidadController.dispose();
     super.dispose();
+  }
+
+  bool get _esFormularioValido {
+    final cantidad = int.tryParse(_cantidadController.text) ?? 0;
+    final cliente = _clienteController.text.trim();
+    return cantidad > 0 && cliente.isNotEmpty;
   }
 
   void _onFormChanged() {
@@ -706,6 +742,35 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          color: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+          child: TabBar(
+            controller: _tabController,
+            labelColor: Theme.of(context).colorScheme.primary,
+            unselectedLabelColor: Theme.of(
+              context,
+            ).colorScheme.onSurfaceVariant,
+            tabs: const [
+              Tab(text: 'Nueva Venta'),
+              Tab(text: 'Cuentas por Cobrar'),
+            ],
+          ),
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [_buildNuevaVentaForm(), _buildCuentasPorCobrar()],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNuevaVentaForm() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(25),
       child: Column(
@@ -748,7 +813,9 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+              color: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.grey.withOpacity(0.2)),
             ),
@@ -768,13 +835,17 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
                           Icon(
                             Icons.check_circle,
                             size: 16,
-                            color: _status == 'paid' ? Colors.white : Colors.green,
+                            color: _status == 'paid'
+                                ? Colors.white
+                                : Colors.green,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             'Pagado',
                             style: TextStyle(
-                              color: _status == 'paid' ? Colors.white : Colors.green,
+                              color: _status == 'paid'
+                                  ? Colors.white
+                                  : Colors.green,
                               fontSize: 12,
                             ),
                           ),
@@ -794,13 +865,17 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
                           Icon(
                             Icons.access_time,
                             size: 16,
-                            color: _status == 'pending' ? Colors.white : Colors.orange,
+                            color: _status == 'pending'
+                                ? Colors.white
+                                : Colors.orange,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             'Pendiente',
                             style: TextStyle(
-                              color: _status == 'pending' ? Colors.white : Colors.orange,
+                              color: _status == 'pending'
+                                  ? Colors.white
+                                  : Colors.orange,
                               fontSize: 12,
                             ),
                           ),
@@ -903,12 +978,12 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
                         setState(() => _cargando = false);
                         _clienteController.clear();
                         _cantidadController.clear();
-                        String mensaje = _status == 'paid' 
-                            ? '✅ Venta registrada como PAGADA' 
+                        String mensaje = _status == 'paid'
+                            ? '✅ Venta registrada como PAGADA'
                             : '✅ Venta registrada como PENDIENTE';
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(mensaje)),
-                        );
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text(mensaje)));
                       } catch (e) {
                         if (!mounted) return;
                         setState(() => _cargando = false);
@@ -930,6 +1005,205 @@ class _RegistrarVentaPageState extends State<RegistrarVentaPage> {
       ),
     );
   }
+
+  Widget _buildCuentasPorCobrar() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('ventas')
+          .where('status', isEqualTo: 'pending')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final pendingVentas = snapshot.data!.docs.toList()
+          ..sort((a, b) {
+            final aDate =
+                (a['fecha'] as Timestamp?)?.toDate() ?? DateTime(1970);
+            final bDate =
+                (b['fecha'] as Timestamp?)?.toDate() ?? DateTime(1970);
+            return bDate.compareTo(aDate);
+          });
+
+        if (pendingVentas.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.check_circle_outline,
+                  size: 64,
+                  color: Colors.green.shade400,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '¡No hay cuentas por cobrar!',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Todas las ventas están pagadas',
+                  style: TextStyle(color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+          );
+        }
+
+        double totalPendiente = pendingVentas.fold<double>(0.0, (prev, doc) {
+          final value = (doc['total'] as num?)?.toDouble();
+          return prev + (value ?? 0.0);
+        });
+
+        return Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              color: Colors.orange.withOpacity(0.1),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Total por Cobrar:',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    '\$${totalPendiente.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: pendingVentas.length,
+                padding: const EdgeInsets.all(16),
+                itemBuilder: (context, index) {
+                  final v = pendingVentas[index];
+                  String fechaVenta = "Sin fecha";
+                  if (v['fecha'] != null) {
+                    fechaVenta = DateFormat(
+                      'd MMM yyyy',
+                    ).format((v['fecha'] as Timestamp).toDate());
+                  }
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  v['cliente'] ?? 'Sin nombre',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                '\$${v['total']}',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Fecha: $fechaVenta',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Text(
+                                '${v['cantidad']} piezas',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _marcarComoPagada(context, v),
+                              icon: const Icon(Icons.check_circle, size: 18),
+                              label: const Text('Cobrar'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _marcarComoPagada(
+    BuildContext context,
+    QueryDocumentSnapshot venta,
+  ) async {
+    try {
+      await FirebaseFirestore.instance.runTransaction((tx) async {
+        tx.update(venta.reference, {
+          'status': 'paid',
+          'fecha': FieldValue.serverTimestamp(),
+          'fecha_pago': FieldValue.serverTimestamp(),
+        });
+      });
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '✅ Venta de ${venta['cliente']} marcada como PAGADA - ingresada en balance de hoy',
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
 }
 
 class FinanzasPage extends StatefulWidget {
@@ -944,7 +1218,6 @@ class _FinanzasPageState extends State<FinanzasPage>
   late DateTime _selectedDate;
   late DateTime _visibleMonth;
   bool _isCalendarExpanded = false;
-  String _ventasFilter = 'all';
 
   @override
   void initState() {
@@ -960,12 +1233,19 @@ class _FinanzasPageState extends State<FinanzasPage>
     super.dispose();
   }
 
-  DateTime get _startOfSelectedDay => DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
-  DateTime get _endOfSelectedDay => DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59);
+  DateTime get _startOfSelectedDay =>
+      DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+  DateTime get _endOfSelectedDay => DateTime(
+    _selectedDate.year,
+    _selectedDate.month,
+    _selectedDate.day,
+    23,
+    59,
+    59,
+  );
 
   @override
   Widget build(BuildContext context) {
-
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('ventas')
@@ -974,7 +1254,7 @@ class _FinanzasPageState extends State<FinanzasPage>
           .orderBy('fecha', descending: true)
           .snapshots(),
       builder: (context, ventasSnapshot) {
-          return StreamBuilder<QuerySnapshot>(
+        return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
               .collection('gastos')
               .where('fecha', isGreaterThanOrEqualTo: _startOfSelectedDay)
@@ -986,21 +1266,24 @@ class _FinanzasPageState extends State<FinanzasPage>
               return const Center(child: CircularProgressIndicator());
             }
 
-            final List<QueryDocumentSnapshot> allVentas = ventasSnapshot.data!.docs;
-            final List<QueryDocumentSnapshot> pendingVentas = allVentas.where((doc) => (doc['status'] as String?) == 'pending').toList();
-
-            double totalVentas = allVentas.fold<double>(0.0, (prev, doc) {
+            final List<QueryDocumentSnapshot> allVentas =
+                ventasSnapshot.data!.docs;
+            final List<QueryDocumentSnapshot> paidVentas = allVentas.where((
+              doc,
+            ) {
               final status = (doc['status'] as String?) ?? 'paid';
-              if (status == 'pending') return prev;
+              return status != 'pending';
+            }).toList();
+
+            double totalVentas = paidVentas.fold<double>(0.0, (prev, doc) {
               final value = (doc['total'] as num?)?.toDouble();
               return prev + (value ?? 0.0);
             });
-            double totalGastos = gastosSnapshot.data!.docs.fold<double>(0.0, (prev, doc) {
+            double totalGastos = gastosSnapshot.data!.docs.fold<double>(0.0, (
+              prev,
+              doc,
+            ) {
               final value = (doc['monto'] as num?)?.toDouble();
-              return prev + (value ?? 0.0);
-            });
-            double totalPendiente = pendingVentas.fold<double>(0.0, (prev, doc) {
-              final value = (doc['total'] as num?)?.toDouble();
               return prev + (value ?? 0.0);
             });
             double balanceNeto = totalVentas - totalGastos;
@@ -1031,7 +1314,10 @@ class _FinanzasPageState extends State<FinanzasPage>
                         icon: const Icon(Icons.today, size: 16),
                         label: const Text('HOY'),
                         style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
@@ -1040,11 +1326,18 @@ class _FinanzasPageState extends State<FinanzasPage>
                   ),
                   const SizedBox(height: 10),
                   GestureDetector(
-                    onTap: () => setState(() => _isCalendarExpanded = !_isCalendarExpanded),
+                    onTap: () => setState(
+                      () => _isCalendarExpanded = !_isCalendarExpanded,
+                    ),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: Colors.grey.withOpacity(0.2)),
                       ),
@@ -1053,21 +1346,33 @@ class _FinanzasPageState extends State<FinanzasPage>
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.calendar_today, size: 18, color: Theme.of(context).colorScheme.primary),
+                              Icon(
+                                Icons.calendar_today,
+                                size: 18,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
                               const SizedBox(width: 8),
                               Text(
-                                DateFormat('d MMMM yyyy').format(_selectedDate).toUpperCase(),
+                                DateFormat(
+                                  'd MMMM yyyy',
+                                ).format(_selectedDate).toUpperCase(),
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13,
-                                  color: Theme.of(context).colorScheme.onSurface,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
                                 ),
                               ),
                             ],
                           ),
                           Icon(
-                            _isCalendarExpanded ? Icons.expand_less : Icons.expand_more,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            _isCalendarExpanded
+                                ? Icons.expand_less
+                                : Icons.expand_more,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         ],
                       ),
@@ -1081,7 +1386,9 @@ class _FinanzasPageState extends State<FinanzasPage>
                         _buildMiniCalendar(context),
                       ],
                     ),
-                    crossFadeState: _isCalendarExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                    crossFadeState: _isCalendarExpanded
+                        ? CrossFadeState.showSecond
+                        : CrossFadeState.showFirst,
                     duration: const Duration(milliseconds: 200),
                   ),
                   const SizedBox(height: 15),
@@ -1089,85 +1396,30 @@ class _FinanzasPageState extends State<FinanzasPage>
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      _buildSmallStat(context, 'Ingresos', totalVentas, Colors.green, Icons.arrow_upward),
+                      _buildSmallStat(
+                        context,
+                        'Ingresos',
+                        totalVentas,
+                        Colors.green,
+                        Icons.arrow_upward,
+                      ),
                       const SizedBox(width: 10),
-                      _buildSmallStat(context, 'Egresos', totalGastos, Colors.red, Icons.arrow_downward),
-                      const SizedBox(width: 10),
-                      _buildSmallStat(context, 'Pendiente', totalPendiente, Colors.orange, Icons.access_time),
+                      _buildSmallStat(
+                        context,
+                        'Egresos',
+                        totalGastos,
+                        Colors.red,
+                        Icons.arrow_downward,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 20),
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => setState(() => _ventasFilter = 'all'),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              decoration: BoxDecoration(
-                                color: _ventasFilter == 'all' ? customPrimaryTeal : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  'Todas',
-                                  style: TextStyle(
-                                    color: _ventasFilter == 'all' ? Colors.white : Theme.of(context).colorScheme.onSurface,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => setState(() => _ventasFilter = 'pending'),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              decoration: BoxDecoration(
-                                color: _ventasFilter == 'pending' ? Colors.orange : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Center(
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.access_time,
-                                      size: 14,
-                                      color: _ventasFilter == 'pending' ? Colors.white : Colors.orange,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Pendientes',
-                                      style: TextStyle(
-                                        color: _ventasFilter == 'pending' ? Colors.white : Colors.orange,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 15),
                   TabBar(
                     controller: _tabController,
                     labelColor: Theme.of(context).colorScheme.primary,
-                    unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                    unselectedLabelColor: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant,
                     tabs: const [
                       Tab(text: 'Ventas'),
                       Tab(text: 'Gastos'),
@@ -1178,10 +1430,7 @@ class _FinanzasPageState extends State<FinanzasPage>
                     child: TabBarView(
                       controller: _tabController,
                       children: [
-                        _buildVentasList(
-                          _ventasFilter == 'all' ? allVentas : pendingVentas,
-                          pendingVentas,
-                        ),
+                        _buildVentasList(paidVentas),
                         _buildGastosList(gastosSnapshot.data!.docs),
                       ],
                     ),
@@ -1197,16 +1446,20 @@ class _FinanzasPageState extends State<FinanzasPage>
 
   // --- MÉTODOS HELPER (Se mantienen con tu diseño) ---
 
-  Widget _buildVentasList(List<QueryDocumentSnapshot> ventas, List<QueryDocumentSnapshot> allPending) {
+  Widget _buildVentasList(List<QueryDocumentSnapshot> ventas) {
     if (ventas.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.check_circle_outline, size: 48, color: Colors.grey.shade400),
+            Icon(
+              Icons.check_circle_outline,
+              size: 48,
+              color: Colors.grey.shade400,
+            ),
             const SizedBox(height: 10),
-            Text(
-              _ventasFilter == 'pending' ? 'No hay ventas pendientes' : 'No hay ventas hoy',
+            const Text(
+              'No hay ventas hoy',
               style: TextStyle(color: Colors.grey),
             ),
           ],
@@ -1223,10 +1476,6 @@ class _FinanzasPageState extends State<FinanzasPage>
           hora = DateFormat('HH:mm').format((v['fecha'] as Timestamp).toDate());
         }
 
-        String status = (v['status'] as String?) ?? 'paid';
-        bool isPending = status == 'pending';
-        bool showMarkPaid = isPending && _ventasFilter == 'pending';
-
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
           elevation: 0,
@@ -1239,10 +1488,10 @@ class _FinanzasPageState extends State<FinanzasPage>
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: isPending ? Colors.orange.withOpacity(0.1) : Colors.green.withOpacity(0.1),
-                  child: Icon(
+                  backgroundColor: Colors.green.withOpacity(0.1),
+                  child: const Icon(
                     Icons.add_shopping_cart,
-                    color: isPending ? Colors.orange : Colors.green,
+                    color: Colors.green,
                     size: 20,
                   ),
                 ),
@@ -1265,70 +1514,20 @@ class _FinanzasPageState extends State<FinanzasPage>
                     ],
                   ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '\$${v['total']}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isPending ? Colors.orange : Colors.green,
-                      ),
-                    ),
-                    Icon(
-                      isPending ? Icons.access_time : Icons.check_circle,
-                      size: 16,
-                      color: isPending ? Colors.orange : Colors.green,
-                    ),
-                  ],
-                ),
-                if (showMarkPaid) ...[
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () => _marcarComoPagada(context, v),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      minimumSize: Size.zero,
-                    ),
-                    child: const Text('Pagar', style: TextStyle(fontSize: 12)),
+                Text(
+                  '\$${v['total']}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
                   ),
-                ],
+                ),
               ],
             ),
           ),
         );
       },
     );
-  }
-
-  Future<void> _marcarComoPagada(BuildContext context, QueryDocumentSnapshot venta) async {
-    try {
-      await FirebaseFirestore.instance.runTransaction((tx) async {
-        tx.update(venta.reference, {
-          'status': 'paid',
-          'fecha_pago': FieldValue.serverTimestamp(),
-        });
-      });
-
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✅ Venta de ${venta['cliente']} marcada como PAGADA'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ Error: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
 
   Widget _buildGastosList(List<QueryDocumentSnapshot> gastos) {
@@ -1459,16 +1658,27 @@ class _FinanzasPageState extends State<FinanzasPage>
   Widget _buildMiniCalendar(BuildContext context) {
     final List<String> weekDays = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'];
     final DateTime now = DateTime.now();
-    final DateTime firstDayOfMonth = DateTime(_visibleMonth.year, _visibleMonth.month, 1);
-    final int daysInMonth = DateTime(_visibleMonth.year, _visibleMonth.month + 1, 0).day;
+    final DateTime firstDayOfMonth = DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month,
+      1,
+    );
+    final int daysInMonth = DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month + 1,
+      0,
+    ).day;
     final int startWeekday = firstDayOfMonth.weekday % 7;
-    final bool isCurrentMonth = _visibleMonth.year == now.year && _visibleMonth.month == now.month;
+    final bool isCurrentMonth =
+        _visibleMonth.year == now.year && _visibleMonth.month == now.month;
     final bool canGoNext = !isCurrentMonth;
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: Colors.grey.withOpacity(0.2)),
       ),
@@ -1481,7 +1691,11 @@ class _FinanzasPageState extends State<FinanzasPage>
                 icon: const Icon(Icons.chevron_left, size: 24),
                 onPressed: () {
                   setState(() {
-                    _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month - 1, 1);
+                    _visibleMonth = DateTime(
+                      _visibleMonth.year,
+                      _visibleMonth.month - 1,
+                      1,
+                    );
                   });
                 },
                 padding: EdgeInsets.zero,
@@ -1496,11 +1710,19 @@ class _FinanzasPageState extends State<FinanzasPage>
                 ),
               ),
               IconButton(
-                icon: Icon(Icons.chevron_right, size: 24, color: canGoNext ? null : Colors.grey),
+                icon: Icon(
+                  Icons.chevron_right,
+                  size: 24,
+                  color: canGoNext ? null : Colors.grey,
+                ),
                 onPressed: canGoNext
                     ? () {
                         setState(() {
-                          _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month + 1, 1);
+                          _visibleMonth = DateTime(
+                            _visibleMonth.year,
+                            _visibleMonth.month + 1,
+                            1,
+                          );
                         });
                       }
                     : null,
@@ -1513,19 +1735,21 @@ class _FinanzasPageState extends State<FinanzasPage>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: weekDays
-                .map((day) => SizedBox(
-                      width: 36,
-                      child: Center(
-                        child: Text(
-                          day,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                .map(
+                  (day) => SizedBox(
+                    width: 36,
+                    child: Center(
+                      child: Text(
+                        day,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
-                    ))
+                    ),
+                  ),
+                )
                 .toList(),
           ),
           const SizedBox(height: 4),
@@ -1542,12 +1766,22 @@ class _FinanzasPageState extends State<FinanzasPage>
                 return const SizedBox.shrink();
               }
               final int day = index - startWeekday + 1;
-              final DateTime date = DateTime(_visibleMonth.year, _visibleMonth.month, day);
-              final bool isToday = date.year == now.year && date.month == now.month && date.day == now.day;
-              final bool isSelected = date.year == _selectedDate.year &&
+              final DateTime date = DateTime(
+                _visibleMonth.year,
+                _visibleMonth.month,
+                day,
+              );
+              final bool isToday =
+                  date.year == now.year &&
+                  date.month == now.month &&
+                  date.day == now.day;
+              final bool isSelected =
+                  date.year == _selectedDate.year &&
                   date.month == _selectedDate.month &&
                   date.day == _selectedDate.day;
-              final bool isFuture = date.isAfter(DateTime(now.year, now.month, now.day));
+              final bool isFuture = date.isAfter(
+                DateTime(now.year, now.month, now.day),
+              );
 
               return GestureDetector(
                 onTap: isFuture
@@ -1561,7 +1795,9 @@ class _FinanzasPageState extends State<FinanzasPage>
                 child: Container(
                   margin: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
-                    color: isSelected ? customPrimaryTeal : (isToday ? customPrimaryTeal.withOpacity(0.1) : null),
+                    color: isSelected
+                        ? customPrimaryTeal
+                        : (isToday ? customPrimaryTeal.withOpacity(0.1) : null),
                     borderRadius: BorderRadius.circular(8),
                     border: isToday && !isSelected
                         ? Border.all(color: customPrimaryTeal, width: 1.5)
@@ -1572,10 +1808,14 @@ class _FinanzasPageState extends State<FinanzasPage>
                       '$day',
                       style: TextStyle(
                         fontSize: 13,
-                        fontWeight: isToday || isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontWeight: isToday || isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                         color: isFuture
                             ? Colors.grey.withOpacity(0.4)
-                            : (isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface),
+                            : (isSelected
+                                  ? Colors.white
+                                  : Theme.of(context).colorScheme.onSurface),
                       ),
                     ),
                   ),
@@ -1979,8 +2219,9 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
     return DateTime(date.year, date.month, date.day - diff);
   }
 
-  DateTime get _weekEnd => _selectedWeekStart.add(const Duration(days: 6, hours: 23, minutes: 59));
-  
+  DateTime get _weekEnd =>
+      _selectedWeekStart.add(const Duration(days: 6, hours: 23, minutes: 59));
+
   bool get _isCurrentWeek {
     final currentWeekStart = _getWeekStart(_ahora);
     return _selectedWeekStart.year == currentWeekStart.year &&
@@ -2023,19 +2264,27 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
               }
 
               // --- CÁLCULO DE CAPITAL TOTAL (Toda la historia) ---
-              double ingresosHistoricos = ventasSnap.data!.docs.fold(
-                0,
-                (p, d) => p + (d['total'] ?? 0),
-              );
+              double ingresosHistoricos = ventasSnap.data!.docs
+                  .where((d) => (d['status'] as String?) != 'pending')
+                  .fold<double>(
+                    0,
+                    (p, d) => p + ((d['total'] as num?)?.toDouble() ?? 0),
+                  );
               double gastosHistoricos = gastosSnap.data!.docs.fold(
                 0,
                 (p, d) => p + (d['monto'] ?? 0),
               );
               double capitalTotal = ingresosHistoricos - gastosHistoricos;
 
+              _ventasDocs = ventasSnap.data!.docs.toList();
+              _gastosDocs = gastosSnap.data!.docs.toList();
+
               // --- CÁLCULO SEMANAL ---
               double ingresosSemana = 0;
               for (var doc in ventasSnap.data!.docs) {
+                final status = (doc['status'] as String?) ?? 'paid';
+                if (status == 'pending') continue;
+
                 if (doc['fecha'] != null && doc['fecha'] is Timestamp) {
                   DateTime fecha = (doc['fecha'] as Timestamp).toDate();
                   if (fecha.isAfter(_selectedWeekStart) &&
@@ -2083,6 +2332,7 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
                       ingresosSemana,
                       Colors.green,
                       Icons.trending_up,
+                      onTap: () => _showVentasBottomSheet(context),
                     ),
                     const SizedBox(height: 10),
                     _buildStatRow(
@@ -2091,6 +2341,7 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
                       gastosSemana,
                       Colors.red,
                       Icons.trending_down,
+                      onTap: () => _showGastosBottomSheet(context),
                     ),
                     const SizedBox(height: 10),
                     _buildStatRow(
@@ -2130,7 +2381,9 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+            color: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey.withOpacity(0.2)),
           ),
@@ -2257,34 +2510,50 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
     String label,
     double monto,
     Color color,
-    IconData icon,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: color.withOpacity(0.1)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color),
-              const SizedBox(width: 15),
-              Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-            ],
-          ),
-          Text(
-            '\$${monto.toStringAsFixed(2)}',
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
+    IconData icon, {
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(15),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: color.withOpacity(0.1)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color),
+                const SizedBox(width: 15),
+                Text(
+                  label,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ],
             ),
-          ),
-        ],
+            Row(
+              children: [
+                Text(
+                  '\$${monto.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+                if (onTap != null) ...[
+                  const SizedBox(width: 8),
+                  Icon(Icons.chevron_right, color: color, size: 20),
+                ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2299,7 +2568,7 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
       child: const Row(
         children: [
           Icon(Icons.info_outline, color: Colors.blue, size: 20),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
             child: Text(
               'Estas estadísticas se calculan en tiempo real basándose en todos los registros de la base de datos.',
@@ -2310,4 +2579,347 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
       ),
     );
   }
+
+  void _showVentasBottomSheet(BuildContext context) {
+    final List<QueryDocumentSnapshot> ventasSemana = [];
+
+    for (var doc in _ventasDocs) {
+      if (doc['fecha'] != null && doc['fecha'] is Timestamp) {
+        DateTime fecha = (doc['fecha'] as Timestamp).toDate();
+        final status = (doc['status'] as String?) ?? 'paid';
+        if (status != 'pending' &&
+            fecha.isAfter(
+              _selectedWeekStart.subtract(const Duration(days: 1)),
+            ) &&
+            fecha.isBefore(_weekEnd.add(const Duration(days: 1)))) {
+          ventasSemana.add(doc);
+        }
+      }
+    }
+
+    ventasSemana.sort((a, b) {
+      final aDate = (a['fecha'] as Timestamp?)?.toDate() ?? DateTime(1970);
+      final bDate = (b['fecha'] as Timestamp?)?.toDate() ?? DateTime(1970);
+      return bDate.compareTo(aDate);
+    });
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.trending_up, color: Colors.green),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Ingresos de la Semana',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '${DateFormat('d MMM').format(_selectedWeekStart)} - ${DateFormat('d MMM').format(_weekEnd)}',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ventasSemana.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.check_circle_outline,
+                                size: 48,
+                                color: Colors.grey.shade400,
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'No hay ingresos esta semana',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          controller: scrollController,
+                          padding: const EdgeInsets.all(16),
+                          itemCount: ventasSemana.length,
+                          itemBuilder: (context, index) {
+                            var v = ventasSemana[index];
+                            String hora = "S/F";
+                            String dia = "";
+                            if (v['fecha'] != null) {
+                              final fecha = (v['fecha'] as Timestamp).toDate();
+                              hora = DateFormat('HH:mm').format(fecha);
+                              dia = DateFormat('d MMM').format(fecha);
+                            }
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                side: BorderSide(
+                                  color: Colors.grey.withOpacity(0.2),
+                                ),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundColor: Colors.green.withOpacity(
+                                        0.1,
+                                      ),
+                                      child: const Icon(
+                                        Icons.add_shopping_cart,
+                                        color: Colors.green,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            v['cliente'] ?? 'Sin nombre',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          Text(
+                                            '${v['cantidad']} piezas • $dia $hora',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      '\$${v['total']}',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showGastosBottomSheet(BuildContext context) {
+    final List<QueryDocumentSnapshot> gastosSemana = [];
+
+    for (var doc in _gastosDocs) {
+      if (doc['fecha'] != null && doc['fecha'] is Timestamp) {
+        DateTime fecha = (doc['fecha'] as Timestamp).toDate();
+        if (fecha.isAfter(
+              _selectedWeekStart.subtract(const Duration(days: 1)),
+            ) &&
+            fecha.isBefore(_weekEnd.add(const Duration(days: 1)))) {
+          gastosSemana.add(doc);
+        }
+      }
+    }
+
+    gastosSemana.sort((a, b) {
+      final aDate = (a['fecha'] as Timestamp?)?.toDate() ?? DateTime(1970);
+      final bDate = (b['fecha'] as Timestamp?)?.toDate() ?? DateTime(1970);
+      return bDate.compareTo(aDate);
+    });
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.trending_down, color: Colors.red),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Gastos de la Semana',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '${DateFormat('d MMM').format(_selectedWeekStart)} - ${DateFormat('d MMM').format(_weekEnd)}',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: gastosSemana.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.check_circle_outline,
+                                size: 48,
+                                color: Colors.grey.shade400,
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'No hay gastos esta semana',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          controller: scrollController,
+                          padding: const EdgeInsets.all(16),
+                          itemCount: gastosSemana.length,
+                          itemBuilder: (context, index) {
+                            var g = gastosSemana[index];
+                            String hora = "S/F";
+                            String dia = "";
+                            if (g['fecha'] != null) {
+                              final fecha = (g['fecha'] as Timestamp).toDate();
+                              hora = DateFormat('HH:mm').format(fecha);
+                              dia = DateFormat('d MMM').format(fecha);
+                            }
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                side: BorderSide(
+                                  color: Colors.grey.withOpacity(0.2),
+                                ),
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 5,
+                                  horizontal: 12,
+                                ),
+                                leading: CircleAvatar(
+                                  backgroundColor: Colors.red.withOpacity(0.1),
+                                  child: const Icon(
+                                    Icons.money_off,
+                                    color: Colors.red,
+                                    size: 20,
+                                  ),
+                                ),
+                                title: Text(
+                                  g['descripcion'] ?? 'Sin descripción',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: Text('$dia $hora'),
+                                trailing: Text(
+                                  '-\$${g['monto'].toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.red,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  List<QueryDocumentSnapshot> _ventasDocs = [];
+  List<QueryDocumentSnapshot> _gastosDocs = [];
 }

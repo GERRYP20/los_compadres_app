@@ -19,9 +19,19 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # Importante: Estas líneas deben tener exactamente 2 espacios de sangría
   flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
+
+# Esta sección va pegada al margen izquierdo (0 espacios)
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon.png" # <--- REVISA: Si tu imagen se llama 'icon.png', cámbialo aquí
+  min_sdk_android: 21
 
 flutter:
   uses-material-design: true
+
   assets:
     - assets/
