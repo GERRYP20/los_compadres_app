@@ -2259,9 +2259,12 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
           return StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance.collection('gastos').snapshots(),
             builder: (context, gastosSnap) {
-              if (!ventasSnap.hasData || !gastosSnap.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
+              return StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('historial_stock').snapshots(),
+                builder: (context, stockSnap) {
+                  if (!ventasSnap.hasData || !gastosSnap.hasData || !stockSnap.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
               // --- CÁLCULO DE CAPITAL TOTAL (Toda la historia) ---
               double ingresosHistoricos = ventasSnap.data!.docs
@@ -2278,36 +2281,55 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
 
               _ventasDocs = ventasSnap.data!.docs.toList();
               _gastosDocs = gastosSnap.data!.docs.toList();
+              _stockDocs = stockSnap.data!.docs.toList();
 
-              // --- CÁLCULO SEMANAL ---
+                  // --- CÁLCULO SEMANAL ---
               double ingresosSemana = 0;
               for (var doc in ventasSnap.data!.docs) {
                 final status = (doc['status'] as String?) ?? 'paid';
                 if (status == 'pending') continue;
 
-                if (doc['fecha'] != null && doc['fecha'] is Timestamp) {
-                  DateTime fecha = (doc['fecha'] as Timestamp).toDate();
-                  if (fecha.isAfter(_selectedWeekStart) &&
-                      fecha.isBefore(_weekEnd)) {
-                    final value = (doc['total'] as num?)?.toDouble() ?? 0;
-                    ingresosSemana += value;
+                try {
+                  if (doc['fecha'] != null) {
+                    DateTime fecha = (doc['fecha'] as Timestamp).toDate();
+                    if (fecha.isAfter(_selectedWeekStart) &&
+                        fecha.isBefore(_weekEnd)) {
+                      final value = (doc['total'] as num?)?.toDouble() ?? 0;
+                      ingresosSemana += value;
+                    }
                   }
-                }
+                } catch (_) {}
               }
 
               double gastosSemana = 0;
               for (var doc in gastosSnap.data!.docs) {
-                if (doc['fecha'] != null && doc['fecha'] is Timestamp) {
-                  DateTime fecha = (doc['fecha'] as Timestamp).toDate();
-                  if (fecha.isAfter(_selectedWeekStart) &&
-                      fecha.isBefore(_weekEnd)) {
-                    final value = (doc['monto'] as num?)?.toDouble() ?? 0;
-                    gastosSemana += value;
+                try {
+                  if (doc['fecha'] != null) {
+                    DateTime fecha = (doc['fecha'] as Timestamp).toDate();
+                    if (fecha.isAfter(_selectedWeekStart) &&
+                        fecha.isBefore(_weekEnd)) {
+                      final value = (doc['monto'] as num?)?.toDouble() ?? 0;
+                      gastosSemana += value;
+                    }
                   }
-                }
+                } catch (_) {}
               }
 
               double totalSemanal = ingresosSemana - gastosSemana;
+
+              int piezasSemana = 0;
+              for (var doc in stockSnap.data!.docs) {
+                try {
+                  if (doc['fecha'] != null) {
+                    DateTime fecha = (doc['fecha'] as Timestamp).toDate();
+                    if (fecha.isAfter(_selectedWeekStart) &&
+                        fecha.isBefore(_weekEnd)) {
+                      final value = (doc['cantidad'] as num?)?.toInt() ?? 0;
+                      piezasSemana += value;
+                    }
+                  }
+                } catch (_) {}
+              }
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
@@ -2351,6 +2373,15 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
                       totalSemanal >= 0 ? Colors.green : Colors.red,
                       Icons.pie_chart_outline,
                     ),
+                    const SizedBox(height: 10),
+                    _buildStatRow(
+                      context,
+                      'Blocks hechos esta semana',
+                      piezasSemana.toDouble(),
+                      Colors.blue,
+                      Icons.inventory_2,
+                      onTap: () => _showStockBottomSheet(context),
+                    ),
 
                     const SizedBox(height: 30),
                     _buildInfoCard(context),
@@ -2360,6 +2391,8 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
             },
           );
         },
+      );
+    },
       ),
     );
   }
@@ -2920,6 +2953,194 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
     );
   }
 
+  void _showStockBottomSheet(BuildContext context) {
+    final List<QueryDocumentSnapshot> stockSemana = [];
+
+    for (var doc in _stockDocs) {
+      try {
+        if (doc['fecha'] != null) {
+          DateTime fecha = (doc['fecha'] as Timestamp).toDate();
+          if (fecha.isAfter(
+                _selectedWeekStart.subtract(const Duration(days: 1)),
+              ) &&
+              fecha.isBefore(_weekEnd.add(const Duration(days: 1)))) {
+            stockSemana.add(doc);
+          }
+        }
+      } catch (_) {}
+    }
+
+    stockSemana.sort((a, b) {
+      try {
+        final aDate = (a['fecha'] as Timestamp?)?.toDate() ?? DateTime(1970);
+        final bDate = (b['fecha'] as Timestamp?)?.toDate() ?? DateTime(1970);
+        return bDate.compareTo(aDate);
+      } catch (_) {
+        return 0;
+      }
+    });
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.inventory_2, color: Colors.blue),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Piezas Ingresadas',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '${DateFormat('d MMM').format(_selectedWeekStart)} - ${DateFormat('d MMM').format(_weekEnd)}',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: stockSemana.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.check_circle_outline,
+                                size: 48,
+                                color: Colors.grey.shade400,
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'No hay entradas esta semana',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          controller: scrollController,
+                          padding: const EdgeInsets.all(16),
+                          itemCount: stockSemana.length,
+                          itemBuilder: (context, index) {
+                            var s = stockSemana[index];
+                            String hora = "S/F";
+                            String dia = "";
+                            try {
+                              if (s['fecha'] != null) {
+                                final fecha = (s['fecha'] as Timestamp).toDate();
+                                hora = DateFormat('HH:mm').format(fecha);
+                                dia = DateFormat('d MMM').format(fecha);
+                              }
+                            } catch (_) {}
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                side: BorderSide(
+                                  color: Colors.grey.withOpacity(0.2),
+                                ),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundColor: Colors.blue.withOpacity(
+                                        0.1,
+                                      ),
+                                      child: const Icon(
+                                        Icons.inventory_2,
+                                        color: Colors.blue,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            s['usuario_nombre'] ?? 'Sin usuario',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          Text(
+                                            '$dia $hora',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      '+${s['cantidad']}',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   List<QueryDocumentSnapshot> _ventasDocs = [];
   List<QueryDocumentSnapshot> _gastosDocs = [];
+  List<QueryDocumentSnapshot> _stockDocs = [];
 }
