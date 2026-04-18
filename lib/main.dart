@@ -2292,8 +2292,8 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
                 try {
                   if (doc['fecha'] != null) {
                     DateTime fecha = (doc['fecha'] as Timestamp).toDate();
-                    if (fecha.isAfter(_selectedWeekStart) &&
-                        fecha.isBefore(_weekEnd)) {
+                    if (!fecha.isBefore(_selectedWeekStart) &&
+                        fecha.isBefore(_weekEnd.add(const Duration(days: 1)))) {
                       final value = (doc['total'] as num?)?.toDouble() ?? 0;
                       ingresosSemana += value;
                     }
@@ -2306,8 +2306,8 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
                 try {
                   if (doc['fecha'] != null) {
                     DateTime fecha = (doc['fecha'] as Timestamp).toDate();
-                    if (fecha.isAfter(_selectedWeekStart) &&
-                        fecha.isBefore(_weekEnd)) {
+                    if (!fecha.isBefore(_selectedWeekStart) &&
+                        fecha.isBefore(_weekEnd.add(const Duration(days: 1)))) {
                       final value = (doc['monto'] as num?)?.toDouble() ?? 0;
                       gastosSemana += value;
                     }
@@ -2315,21 +2315,21 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
                 } catch (_) {}
               }
 
-              double totalSemanal = ingresosSemana - gastosSemana;
-
               int piezasSemana = 0;
               for (var doc in stockSnap.data!.docs) {
                 try {
                   if (doc['fecha'] != null) {
                     DateTime fecha = (doc['fecha'] as Timestamp).toDate();
-                    if (fecha.isAfter(_selectedWeekStart) &&
-                        fecha.isBefore(_weekEnd)) {
+                    if (!fecha.isBefore(_selectedWeekStart) &&
+                        fecha.isBefore(_weekEnd.add(const Duration(days: 1)))) {
                       final value = (doc['cantidad'] as num?)?.toInt() ?? 0;
                       piezasSemana += value;
                     }
                   }
                 } catch (_) {}
               }
+
+              double totalSemanal = ingresosSemana - gastosSemana;
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
@@ -2381,6 +2381,7 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
                       Colors.blue,
                       Icons.inventory_2,
                       onTap: () => _showStockBottomSheet(context),
+                      showCurrency: false,
                     ),
 
                     const SizedBox(height: 30),
@@ -2545,6 +2546,7 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
     Color color,
     IconData icon, {
     VoidCallback? onTap,
+    bool showCurrency = true,
   }) {
     return InkWell(
       onTap: onTap,
@@ -2572,7 +2574,7 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
             Row(
               children: [
                 Text(
-                  '\$${monto.toStringAsFixed(2)}',
+                  showCurrency ? '\$${monto.toStringAsFixed(2)}' : '${monto.toInt()}',
                   style: TextStyle(
                     color: color,
                     fontWeight: FontWeight.bold,
@@ -2617,23 +2619,27 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
     final List<QueryDocumentSnapshot> ventasSemana = [];
 
     for (var doc in _ventasDocs) {
-      if (doc['fecha'] != null && doc['fecha'] is Timestamp) {
-        DateTime fecha = (doc['fecha'] as Timestamp).toDate();
-        final status = (doc['status'] as String?) ?? 'paid';
-        if (status != 'pending' &&
-            fecha.isAfter(
-              _selectedWeekStart.subtract(const Duration(days: 1)),
-            ) &&
-            fecha.isBefore(_weekEnd.add(const Duration(days: 1)))) {
-          ventasSemana.add(doc);
+      try {
+        if (doc['fecha'] != null) {
+          DateTime fecha = (doc['fecha'] as Timestamp).toDate();
+          final status = (doc['status'] as String?) ?? 'paid';
+          if (status != 'pending' &&
+              !fecha.isBefore(_selectedWeekStart) &&
+              fecha.isBefore(_weekEnd.add(const Duration(days: 1)))) {
+            ventasSemana.add(doc);
+          }
         }
-      }
+      } catch (_) {}
     }
 
     ventasSemana.sort((a, b) {
-      final aDate = (a['fecha'] as Timestamp?)?.toDate() ?? DateTime(1970);
-      final bDate = (b['fecha'] as Timestamp?)?.toDate() ?? DateTime(1970);
-      return bDate.compareTo(aDate);
+      try {
+        final aDate = (a['fecha'] as Timestamp?)?.toDate() ?? DateTime(1970);
+        final bDate = (b['fecha'] as Timestamp?)?.toDate() ?? DateTime(1970);
+        return bDate.compareTo(aDate);
+      } catch (_) {
+        return 0;
+      }
     });
 
     showModalBottomSheet(
@@ -2798,21 +2804,25 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
     final List<QueryDocumentSnapshot> gastosSemana = [];
 
     for (var doc in _gastosDocs) {
-      if (doc['fecha'] != null && doc['fecha'] is Timestamp) {
-        DateTime fecha = (doc['fecha'] as Timestamp).toDate();
-        if (fecha.isAfter(
-              _selectedWeekStart.subtract(const Duration(days: 1)),
-            ) &&
-            fecha.isBefore(_weekEnd.add(const Duration(days: 1)))) {
-          gastosSemana.add(doc);
+      try {
+        if (doc['fecha'] != null) {
+          DateTime fecha = (doc['fecha'] as Timestamp).toDate();
+          if (!fecha.isBefore(_selectedWeekStart) &&
+              fecha.isBefore(_weekEnd.add(const Duration(days: 1)))) {
+            gastosSemana.add(doc);
+          }
         }
-      }
+      } catch (_) {}
     }
 
     gastosSemana.sort((a, b) {
-      final aDate = (a['fecha'] as Timestamp?)?.toDate() ?? DateTime(1970);
-      final bDate = (b['fecha'] as Timestamp?)?.toDate() ?? DateTime(1970);
-      return bDate.compareTo(aDate);
+      try {
+        final aDate = (a['fecha'] as Timestamp?)?.toDate() ?? DateTime(1970);
+        final bDate = (b['fecha'] as Timestamp?)?.toDate() ?? DateTime(1970);
+        return bDate.compareTo(aDate);
+      } catch (_) {
+        return 0;
+      }
     });
 
     showModalBottomSheet(
@@ -2960,9 +2970,7 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
       try {
         if (doc['fecha'] != null) {
           DateTime fecha = (doc['fecha'] as Timestamp).toDate();
-          if (fecha.isAfter(
-                _selectedWeekStart.subtract(const Duration(days: 1)),
-              ) &&
+          if (!fecha.isBefore(_selectedWeekStart) &&
               fecha.isBefore(_weekEnd.add(const Duration(days: 1)))) {
             stockSemana.add(doc);
           }
