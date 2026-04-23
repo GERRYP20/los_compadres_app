@@ -342,15 +342,23 @@ class _InicioPageState extends State<InicioPage> {
                         ),
                       ),
                       const SizedBox(height: 15),
-                      _buildDashboardCard(
-                        context,
-                        title: 'Ver Ventas Recientes',
-                        icon: Icons.monetization_on_outlined,
-                        dataValue: 'Ver Historial',
-                        unitValue: 'Finanzas',
-                        cardColor: Theme.of(context).colorScheme.surfaceVariant,
-                        textColor: Theme.of(context).colorScheme.onSurface,
-                        subtitle: 'Últimas 10 transacciones',
+                      InkWell(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const RendimientoHistoryPage(),
+                          ),
+                        ),
+                        child: _buildDashboardCard(
+                          context,
+                          title: 'Historial del Rendimiento de Cemento',
+                          icon: Icons.inventory_2,
+                          dataValue: 'Ver Todo',
+                          unitValue: 'Rendimiento',
+                          cardColor: Colors.orange.shade100,
+                          textColor: Colors.orange.shade800,
+                          subtitle: 'Ver cortes de bolsa',
+                        ),
                       ),
                     ],
                   ),
@@ -510,7 +518,7 @@ class StockPage extends StatelessWidget {
                     );
                   });
 
-                  if (!context.mounted) return;
+if (!context.mounted) return;
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -533,6 +541,66 @@ class StockPage extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _cerrarBolsaDeCemento(BuildContext context) async {
+    try {
+      String nombreUsuario = 'Usuario';
+      try {
+        var userDoc = await FirebaseFirestore.instance
+            .collection('usuarios')
+            .doc(FirebaseAuth.instance.currentUser?.uid)
+            .get();
+        if (userDoc.exists) {
+          nombreUsuario = userDoc['nombre'] ?? 'Usuario';
+        }
+      } catch (_) {
+        // Keep default 'Usuario'
+      }
+
+      DateTime fechaUltimoCorte = DateTime(1970);
+      var cortesQuery = await FirebaseFirestore.instance
+          .collection('cortes_cemento')
+          .orderBy('fecha_corte', descending: true)
+          .limit(1)
+          .get();
+      
+      if (cortesQuery.docs.isNotEmpty) {
+        var lastCutDoc = cortesQuery.docs.first;
+        if (lastCutDoc['fecha_corte'] != null) {
+          fechaUltimoCorte = (lastCutDoc['fecha_corte'] as Timestamp).toDate();
+        }
+      }
+
+      var historialQuery = await FirebaseFirestore.instance
+          .collection('historial_stock')
+          .where('fecha', isGreaterThan: fechaUltimoCorte)
+          .where('fecha', isLessThanOrEqualTo: DateTime.now())
+          .get();
+      
+      int sumaLadrillos = 0;
+      for (var doc in historialQuery.docs) {
+        sumaLadrillos += (doc['cantidad'] as num?)?.toInt() ?? 0;
+      }
+
+      await FirebaseFirestore.instance.collection('cortes_cemento').add({
+        'fecha_corte': FieldValue.serverTimestamp(),
+        'ladrillos_acumulados': sumaLadrillos,
+        'usuario_nombre': nombreUsuario,
+      });
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✅ Bolsa cerrada: $sumaLadrillos blocks registrados'),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ Error: $e')),
+      );
+    }
   }
 
   @override
@@ -603,6 +671,49 @@ class StockPage extends StatelessWidget {
                     label: const Text('AÑADIR BLOCKS'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: customPrimaryTeal,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 30,
+                        vertical: 15,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      bool? confirmar = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('CERRAR BOLSA DE CEMENTO'),
+                          content: const Text(
+                            '¿Estás seguro de que deseas cerrar la bolsa de cemento actual? Esto calculará todos los blocks producidos desde el último corte hasta este momento.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('CANCELAR'),
+                            ),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: customPrimaryTeal,
+                              ),
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text(
+                                'CONFIRMAR',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirmar == true) {
+                        await _cerrarBolsaDeCemento(context);
+                      }
+                    },
+                    icon: const Icon(Icons.inventory_2),
+                    label: const Text('CERRAR BOLSA'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange.shade700,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 30,
@@ -3151,4 +3262,129 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
   List<QueryDocumentSnapshot> _ventasDocs = [];
   List<QueryDocumentSnapshot> _gastosDocs = [];
   List<QueryDocumentSnapshot> _stockDocs = [];
+}
+
+class RendimientoHistoryPage extends StatelessWidget {
+  const RendimientoHistoryPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Hist.Rendimiento de Cemento'),
+        backgroundColor: customPrimaryTeal,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('cortes_cemento')
+            .orderBy('fecha_corte', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.data!.docs.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.inventory_2_outlined,
+                    size: 64,
+                    color: Colors.grey.shade400,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No hay rendimientos registrados',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Presiona "Cerrar Bolsa" en la página de Stock',
+                    style: TextStyle(
+                      color: Colors.grey.shade500,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(15),
+            itemCount: snapshot.data!.docs.length,
+            itemBuilder: (context, index) {
+              var doc = snapshot.data!.docs[index];
+              DateTime fechaCorte = DateTime(1970);
+              if (doc['fecha_corte'] != null && doc['fecha_corte'] is Timestamp) {
+                fechaCorte = (doc['fecha_corte'] as Timestamp).toDate();
+              }
+              int ladrillos = (doc['ladrillos_acumulados'] as num?)?.toInt() ?? 0;
+              String usuario = doc['usuario_nombre'] ?? 'Usuario';
+
+              return Card(
+                elevation: 0,
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.grey.shade300),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.orange.shade700,
+                    child: const Icon(
+                      Icons.inventory_2,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    '$ladrillos blocks',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 4),
+                      Text(
+                        DateFormat('dd MMM yyyy, HH:mm').format(fechaCorte),
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        'Por: $usuario',
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  trailing: Icon(
+                    Icons.assessment,
+                    color: Colors.grey.shade400,
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
 }
