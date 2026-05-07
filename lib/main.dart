@@ -434,6 +434,123 @@ class StockPage extends StatelessWidget {
   const StockPage({super.key});
 
   // FUNCIÓN PARA EL DIÁLOGO (Actualizada para guardar en el historial)
+  void _mostrarDialogoSubstraer(BuildContext context, int stockActual) {
+    final TextEditingController cantidadController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('SALIDA DE BLOCKS'),
+          content: TextField(
+            controller: cantidadController,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: '¿Cuántos salen?',
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.remove_circle_outline),
+              helperText: 'Stock actual: $stockActual',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCELAR'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+              ),
+              onPressed: () async {
+                int cant = int.tryParse(cantidadController.text) ?? 0;
+                if (cant <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('❌ Ingrese una cantidad válida mayor a 0'),
+                    ),
+                  );
+                  return;
+                }
+                if (cant > 999999) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('❌ La cantidad máxima es 999,999'),
+                    ),
+                  );
+                  return;
+                }
+                if (cant > stockActual) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('❌ Stock insuficiente. Solo hay $stockActual blocks disponibles.'),
+                    ),
+                  );
+                  return;
+                }
+                try {
+                  String nombreUsuario = 'Usuario';
+                  try {
+                    var userDoc = await FirebaseFirestore.instance
+                        .collection('usuarios')
+                        .doc(FirebaseAuth.instance.currentUser?.uid)
+                        .get();
+                    if (userDoc.exists) {
+                      nombreUsuario = userDoc['nombre'] ?? 'Usuario';
+                    }
+                  } catch (_) {}
+
+                  await FirebaseFirestore.instance.runTransaction((tx) async {
+                    DocumentReference stockRef = FirebaseFirestore.instance
+                        .collection('inventario')
+                        .doc('global');
+
+                    DocumentSnapshot snap = await tx.get(stockRef);
+
+                    int stockActual =
+                        (snap['piezas_disponibles'] as num?)?.toInt() ?? 0;
+                    tx.update(stockRef, {
+                      'piezas_disponibles': stockActual - cant,
+                    });
+
+                    tx.set(
+                      FirebaseFirestore.instance
+                          .collection('historial_stock')
+                          .doc(),
+                      {
+                        'cantidad': -cant,
+                        'fecha': FieldValue.serverTimestamp(),
+                        'id_usuario': FirebaseAuth.instance.currentUser?.uid,
+                        'usuario_nombre': nombreUsuario,
+                        'tipo': 'resta',
+                      },
+                    );
+                  });
+
+                  if (!context.mounted) return;
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Stock reducido e Historial actualizado'),
+                    ),
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('❌ Error: $e')));
+                }
+              },
+              child: const Text(
+                'RESTAR',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _mostrarDialogoAgregar(BuildContext context, int stockActual) {
     final TextEditingController cantidadController = TextEditingController();
 
@@ -666,6 +783,20 @@ if (!context.mounted) return;
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton.icon(
+                    onPressed: () => _mostrarDialogoSubstraer(context, current),
+                    icon: const Icon(Icons.remove_circle_outline),
+                    label: const Text('RESTAR BLOCKS'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade700,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 30,
+                        vertical: 15,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  ElevatedButton.icon(
                     onPressed: () => _mostrarDialogoAgregar(context, current),
                     icon: const Icon(Icons.add_circle_outline),
                     label: const Text('AÑADIR BLOCKS'),
@@ -772,6 +903,9 @@ if (!context.mounted) return;
                       'dd/MM/yyyy • HH:mm',
                     ).format((v['fecha'] as Timestamp).toDate());
                   }
+                  int cantidad = (v['cantidad'] as num?)?.toInt() ?? 0;
+                  bool esResta = cantidad < 0;
+                  int cantidadAbs = cantidad.abs();
 
                   return Card(
                     elevation: 0,
@@ -781,15 +915,19 @@ if (!context.mounted) return;
                       side: BorderSide(color: Colors.grey.withOpacity(0.2)),
                     ),
                     child: ListTile(
-                      leading: const CircleAvatar(
-                        backgroundColor: Colors.green,
-                        child: Icon(Icons.arrow_upward, color: Colors.white),
+                      leading: CircleAvatar(
+                        backgroundColor: esResta ? Colors.red : Colors.green,
+                        child: Icon(
+                          esResta ? Icons.arrow_downward : Icons.arrow_upward,
+                          color: Colors.white,
+                        ),
                       ),
                       title: Text(
-                        '+ ${v['cantidad']} piezas',
-                        style: const TextStyle(
+                        esResta ? '- $cantidadAbs piezas' : '+ $cantidadAbs piezas',
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 18,
+                          color: esResta ? Colors.red : null,
                         ),
                       ),
                       subtitle: Text(
